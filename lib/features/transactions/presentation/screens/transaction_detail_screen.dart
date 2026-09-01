@@ -138,6 +138,44 @@ class TransactionDetailScreen extends ConsumerWidget {
                                 label: 'Keterangan',
                                 value: value.notes!,
                               ),
+                            if (value.isCredit) ...[
+                              const Divider(height: 32),
+                              Text(
+                                'Informasi Kredit',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 16),
+                              _DetailRow(
+                                label: 'Nama Pelanggan',
+                                value: value.creditCustomerName ?? '-',
+                              ),
+                              _DetailRow(
+                                label: 'Status',
+                                value: value.creditStatus.label,
+                              ),
+                              _DetailRow(
+                                label: 'Jatuh Tempo',
+                                value: AppDateFormatter.long(
+                                  value.creditDueDate ??
+                                      value.transactionDate,
+                                ),
+                              ),
+                              _DetailRow(
+                                label: 'Total Kredit',
+                                value:
+                                    'Rp ${value.amount.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                              ),
+                              _DetailRow(
+                                label: 'Sudah Dibayar',
+                                value:
+                                    'Rp ${value.creditPaidAmount.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                              ),
+                              _DetailRow(
+                                label: 'Sisa Cicilan',
+                                value:
+                                    'Rp ${value.creditRemainingAmount.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                              ),
+                            ],
                             _DetailRow(
                               label: 'Dibuat',
                               value: AppDateFormatter.dateTime(value.createdAt),

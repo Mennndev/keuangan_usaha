@@ -22,6 +22,19 @@ class Transactions extends Table {
 
   DateTimeColumn get updatedAt => dateTime()();
 
+  // Credit sales fields
+  BoolColumn get isCredit => boolean().withDefault(const Constant(false))();
+
+  TextColumn get creditCustomerName => text().nullable()();
+
+  DateTimeColumn get creditDueDate => dateTime().nullable()();
+
+  IntColumn get creditPaidAmount => integer().withDefault(const Constant(0))();
+
+  TextColumn get creditStatus => text()
+      .withDefault(const Constant('pending'))
+      .customConstraint("CHECK (creditStatus IN ('pending', 'partial', 'paid'))")();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

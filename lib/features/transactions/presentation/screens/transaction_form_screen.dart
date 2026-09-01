@@ -35,9 +35,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _dateController = TextEditingController();
   final _categoryController = TextEditingController();
   final _notesController = TextEditingController();
+  final _creditCustomerController = TextEditingController();
+  final _creditDueDateController = TextEditingController();
 
   late TransactionType _type;
   late DateTime _date;
+  bool _isCredit = false;
+  late DateTime _creditDueDate;
   bool _dirty = false;
   bool _submitting = false;
   bool _popAllowed = false;
@@ -48,7 +52,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     super.initState();
     _type = widget.initialType;
     _date = DateTime.now();
+    _creditDueDate = DateTime.now().add(const Duration(days: 30));
     _dateController.text = AppDateFormatter.long(_date);
+    _creditDueDateController.text = AppDateFormatter.long(_creditDueDate);
   }
 
   @override
@@ -58,6 +64,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _dateController.dispose();
     _categoryController.dispose();
     _notesController.dispose();
+    _creditCustomerController.dispose();
+    _creditDueDateController.dispose();
     super.dispose();
   }
 
@@ -66,11 +74,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _loadedId = transaction.id;
     _type = transaction.type;
     _date = transaction.transactionDate;
+    _isCredit = transaction.isCredit;
     _nameController.text = transaction.name;
     _amountController.text = CurrencyFormatter.digits(transaction.amount);
     _dateController.text = AppDateFormatter.long(transaction.transactionDate);
     _categoryController.text = transaction.category ?? '';
     _notesController.text = transaction.notes ?? '';
+    if (transaction.isCredit) {
+      _creditCustomerController.text = transaction.creditCustomerName ?? '';
+      _creditDueDate = transaction.creditDueDate ?? DateTime.now();
+      _creditDueDateController.text = AppDateFormatter.long(_creditDueDate);
+    }
     _dirty = false;
   }
 
@@ -92,6 +106,24 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     setState(() {
       _date = picked;
       _dateController.text = AppDateFormatter.long(picked);
+      _dirty = true;
+    });
+  }
+
+  Future<void> _pickCreditDueDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _creditDueDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year + 10, 12, 31),
+      helpText: 'Pilih tanggal jatuh tempo pembayaran',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _creditDueDate = picked;
+      _creditDueDateController.text = AppDateFormatter.long(picked);
       _dirty = true;
     });
   }
@@ -137,6 +169,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       transactionDate: _date,
       category: _categoryController.text,
       notes: _notesController.text,
+      isCredit: _isCredit,
+      creditCustomerName: _isCredit ? _creditCustomerController.text : null,
+      creditDueDate: _isCredit ? _creditDueDate : null,
     );
     try {
       final controller = ref.read(transactionControllerProvider.notifier);
@@ -337,6 +372,51 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               textInputAction: TextInputAction.newline,
                               onChanged: _markDirty,
                             ),
+                            if (_type == TransactionType.income) ...[
+                              const SizedBox(height: 20),
+                              SwitchListTile(
+                                title: const Text('Penjualan Kredit'),
+                                subtitle: const Text(
+                                  'Pelanggan membayar di bulan berikutnya',
+                                ),
+                                value: _isCredit,
+                                onChanged: _submitting
+                                    ? null
+                                    : (value) => setState(() {
+                                          _isCredit = value;
+                                          _dirty = true;
+                                        }),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ],
+                            if (_isCredit) ...[
+                              const SizedBox(height: 16),
+                              AppTextField(
+                                controller: _creditCustomerController,
+                                label: 'Nama Pelanggan',
+                                hint: 'Contoh: Toko Sejaya',
+                                validator: (value) {
+                                  if (_isCredit &&
+                                      (value == null || value.trim().isEmpty)) {
+                                    return 'Nama pelanggan harus diisi untuk penjualan kredit';
+                                  }
+                                  return null;
+                                },
+                                textInputAction: TextInputAction.next,
+                                onChanged: _markDirty,
+                              ),
+                              const SizedBox(height: 16),
+                              AppTextField(
+                                controller: _creditDueDateController,
+                                label: 'Tanggal Jatuh Tempo',
+                                readOnly: true,
+                                onTap:
+                                    _submitting ? null : _pickCreditDueDate,
+                                suffixIcon: const Icon(
+                                  Icons.calendar_today_outlined,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 24),
                             LayoutBuilder(
                               builder: (context, constraints) {

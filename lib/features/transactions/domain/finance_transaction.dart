@@ -22,6 +22,27 @@ extension TransactionTypeX on TransactionType {
   }
 }
 
+enum CreditStatus { pending, partial, paid }
+
+extension CreditStatusX on CreditStatus {
+  String get databaseValue => name;
+
+  String get label => switch (this) {
+    CreditStatus.pending => 'Belum Dibayar',
+    CreditStatus.partial => 'Sebagian Dibayar',
+    CreditStatus.paid => 'Lunas',
+  };
+
+  static CreditStatus fromDatabase(String value) {
+    return switch (value) {
+      'pending' => CreditStatus.pending,
+      'partial' => CreditStatus.partial,
+      'paid' => CreditStatus.paid,
+      _ => throw FormatException('Status kredit tidak valid: $value'),
+    };
+  }
+}
+
 class FinanceTransaction {
   const FinanceTransaction({
     required this.id,
@@ -33,6 +54,11 @@ class FinanceTransaction {
     required this.updatedAt,
     this.category,
     this.notes,
+    this.isCredit = false,
+    this.creditCustomerName,
+    this.creditDueDate,
+    this.creditPaidAmount = 0,
+    this.creditStatus = CreditStatus.pending,
   });
 
   final String id;
@@ -44,6 +70,19 @@ class FinanceTransaction {
   final DateTime transactionDate;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // Credit fields
+  final bool isCredit;
+  final String? creditCustomerName;
+  final DateTime? creditDueDate;
+  final int creditPaidAmount;
+  final CreditStatus creditStatus;
+
+  int get creditRemainingAmount => amount - creditPaidAmount;
+  
+  bool get isCreditPending => isCredit && creditStatus == CreditStatus.pending;
+  bool get isCreditPartial => isCredit && creditStatus == CreditStatus.partial;
+  bool get isCreditPaid => isCredit && creditStatus == CreditStatus.paid;
 }
 
 class TransactionInput {
@@ -54,6 +93,9 @@ class TransactionInput {
     required this.transactionDate,
     this.category,
     this.notes,
+    this.isCredit = false,
+    this.creditCustomerName,
+    this.creditDueDate,
   });
 
   final TransactionType type;
@@ -62,4 +104,9 @@ class TransactionInput {
   final String? category;
   final String? notes;
   final DateTime transactionDate;
+  
+  // Credit fields
+  final bool isCredit;
+  final String? creditCustomerName;
+  final DateTime? creditDueDate;
 }

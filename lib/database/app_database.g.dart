@@ -100,6 +100,70 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isCreditMeta = const VerificationMeta(
+    'isCredit',
+  );
+  @override
+  late final GeneratedColumn<bool> isCredit = GeneratedColumn<bool>(
+    'is_credit',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_credit" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _creditCustomerNameMeta =
+      const VerificationMeta('creditCustomerName');
+  @override
+  late final GeneratedColumn<String> creditCustomerName =
+      GeneratedColumn<String>(
+        'credit_customer_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _creditDueDateMeta = const VerificationMeta(
+    'creditDueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> creditDueDate =
+      GeneratedColumn<DateTime>(
+        'credit_due_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _creditPaidAmountMeta = const VerificationMeta(
+    'creditPaidAmount',
+  );
+  @override
+  late final GeneratedColumn<int> creditPaidAmount = GeneratedColumn<int>(
+    'credit_paid_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _creditStatusMeta = const VerificationMeta(
+    'creditStatus',
+  );
+  @override
+  late final GeneratedColumn<String> creditStatus = GeneratedColumn<String>(
+    'credit_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints:
+        'CHECK (creditStatus IN (\'pending\', \'partial\', \'paid\'))',
+    defaultValue: const Constant('pending'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -111,6 +175,11 @@ class $TransactionsTable extends Transactions
     transactionDate,
     createdAt,
     updatedAt,
+    isCredit,
+    creditCustomerName,
+    creditDueDate,
+    creditPaidAmount,
+    creditStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -192,6 +261,48 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('is_credit')) {
+      context.handle(
+        _isCreditMeta,
+        isCredit.isAcceptableOrUnknown(data['is_credit']!, _isCreditMeta),
+      );
+    }
+    if (data.containsKey('credit_customer_name')) {
+      context.handle(
+        _creditCustomerNameMeta,
+        creditCustomerName.isAcceptableOrUnknown(
+          data['credit_customer_name']!,
+          _creditCustomerNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('credit_due_date')) {
+      context.handle(
+        _creditDueDateMeta,
+        creditDueDate.isAcceptableOrUnknown(
+          data['credit_due_date']!,
+          _creditDueDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('credit_paid_amount')) {
+      context.handle(
+        _creditPaidAmountMeta,
+        creditPaidAmount.isAcceptableOrUnknown(
+          data['credit_paid_amount']!,
+          _creditPaidAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('credit_status')) {
+      context.handle(
+        _creditStatusMeta,
+        creditStatus.isAcceptableOrUnknown(
+          data['credit_status']!,
+          _creditStatusMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -237,6 +348,26 @@ class $TransactionsTable extends Transactions
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      isCredit: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_credit'],
+      )!,
+      creditCustomerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}credit_customer_name'],
+      ),
+      creditDueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}credit_due_date'],
+      ),
+      creditPaidAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}credit_paid_amount'],
+      )!,
+      creditStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}credit_status'],
+      )!,
     );
   }
 
@@ -257,6 +388,11 @@ class TransactionRecord extends DataClass
   final DateTime transactionDate;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isCredit;
+  final String? creditCustomerName;
+  final DateTime? creditDueDate;
+  final int creditPaidAmount;
+  final String creditStatus;
   const TransactionRecord({
     required this.id,
     required this.type,
@@ -267,6 +403,11 @@ class TransactionRecord extends DataClass
     required this.transactionDate,
     required this.createdAt,
     required this.updatedAt,
+    required this.isCredit,
+    this.creditCustomerName,
+    this.creditDueDate,
+    required this.creditPaidAmount,
+    required this.creditStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -284,6 +425,15 @@ class TransactionRecord extends DataClass
     map['transaction_date'] = Variable<DateTime>(transactionDate);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_credit'] = Variable<bool>(isCredit);
+    if (!nullToAbsent || creditCustomerName != null) {
+      map['credit_customer_name'] = Variable<String>(creditCustomerName);
+    }
+    if (!nullToAbsent || creditDueDate != null) {
+      map['credit_due_date'] = Variable<DateTime>(creditDueDate);
+    }
+    map['credit_paid_amount'] = Variable<int>(creditPaidAmount);
+    map['credit_status'] = Variable<String>(creditStatus);
     return map;
   }
 
@@ -302,6 +452,15 @@ class TransactionRecord extends DataClass
       transactionDate: Value(transactionDate),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      isCredit: Value(isCredit),
+      creditCustomerName: creditCustomerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(creditCustomerName),
+      creditDueDate: creditDueDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(creditDueDate),
+      creditPaidAmount: Value(creditPaidAmount),
+      creditStatus: Value(creditStatus),
     );
   }
 
@@ -320,6 +479,13 @@ class TransactionRecord extends DataClass
       transactionDate: serializer.fromJson<DateTime>(json['transactionDate']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isCredit: serializer.fromJson<bool>(json['isCredit']),
+      creditCustomerName: serializer.fromJson<String?>(
+        json['creditCustomerName'],
+      ),
+      creditDueDate: serializer.fromJson<DateTime?>(json['creditDueDate']),
+      creditPaidAmount: serializer.fromJson<int>(json['creditPaidAmount']),
+      creditStatus: serializer.fromJson<String>(json['creditStatus']),
     );
   }
   @override
@@ -335,6 +501,11 @@ class TransactionRecord extends DataClass
       'transactionDate': serializer.toJson<DateTime>(transactionDate),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isCredit': serializer.toJson<bool>(isCredit),
+      'creditCustomerName': serializer.toJson<String?>(creditCustomerName),
+      'creditDueDate': serializer.toJson<DateTime?>(creditDueDate),
+      'creditPaidAmount': serializer.toJson<int>(creditPaidAmount),
+      'creditStatus': serializer.toJson<String>(creditStatus),
     };
   }
 
@@ -348,6 +519,11 @@ class TransactionRecord extends DataClass
     DateTime? transactionDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isCredit,
+    Value<String?> creditCustomerName = const Value.absent(),
+    Value<DateTime?> creditDueDate = const Value.absent(),
+    int? creditPaidAmount,
+    String? creditStatus,
   }) => TransactionRecord(
     id: id ?? this.id,
     type: type ?? this.type,
@@ -358,6 +534,15 @@ class TransactionRecord extends DataClass
     transactionDate: transactionDate ?? this.transactionDate,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    isCredit: isCredit ?? this.isCredit,
+    creditCustomerName: creditCustomerName.present
+        ? creditCustomerName.value
+        : this.creditCustomerName,
+    creditDueDate: creditDueDate.present
+        ? creditDueDate.value
+        : this.creditDueDate,
+    creditPaidAmount: creditPaidAmount ?? this.creditPaidAmount,
+    creditStatus: creditStatus ?? this.creditStatus,
   );
   TransactionRecord copyWithCompanion(TransactionsCompanion data) {
     return TransactionRecord(
@@ -372,6 +557,19 @@ class TransactionRecord extends DataClass
           : this.transactionDate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isCredit: data.isCredit.present ? data.isCredit.value : this.isCredit,
+      creditCustomerName: data.creditCustomerName.present
+          ? data.creditCustomerName.value
+          : this.creditCustomerName,
+      creditDueDate: data.creditDueDate.present
+          ? data.creditDueDate.value
+          : this.creditDueDate,
+      creditPaidAmount: data.creditPaidAmount.present
+          ? data.creditPaidAmount.value
+          : this.creditPaidAmount,
+      creditStatus: data.creditStatus.present
+          ? data.creditStatus.value
+          : this.creditStatus,
     );
   }
 
@@ -386,7 +584,12 @@ class TransactionRecord extends DataClass
           ..write('notes: $notes, ')
           ..write('transactionDate: $transactionDate, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isCredit: $isCredit, ')
+          ..write('creditCustomerName: $creditCustomerName, ')
+          ..write('creditDueDate: $creditDueDate, ')
+          ..write('creditPaidAmount: $creditPaidAmount, ')
+          ..write('creditStatus: $creditStatus')
           ..write(')'))
         .toString();
   }
@@ -402,6 +605,11 @@ class TransactionRecord extends DataClass
     transactionDate,
     createdAt,
     updatedAt,
+    isCredit,
+    creditCustomerName,
+    creditDueDate,
+    creditPaidAmount,
+    creditStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -415,7 +623,12 @@ class TransactionRecord extends DataClass
           other.notes == this.notes &&
           other.transactionDate == this.transactionDate &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.isCredit == this.isCredit &&
+          other.creditCustomerName == this.creditCustomerName &&
+          other.creditDueDate == this.creditDueDate &&
+          other.creditPaidAmount == this.creditPaidAmount &&
+          other.creditStatus == this.creditStatus);
 }
 
 class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
@@ -428,6 +641,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
   final Value<DateTime> transactionDate;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<bool> isCredit;
+  final Value<String?> creditCustomerName;
+  final Value<DateTime?> creditDueDate;
+  final Value<int> creditPaidAmount;
+  final Value<String> creditStatus;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -439,6 +657,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
     this.transactionDate = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.isCredit = const Value.absent(),
+    this.creditCustomerName = const Value.absent(),
+    this.creditDueDate = const Value.absent(),
+    this.creditPaidAmount = const Value.absent(),
+    this.creditStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -451,6 +674,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
     required DateTime transactionDate,
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.isCredit = const Value.absent(),
+    this.creditCustomerName = const Value.absent(),
+    this.creditDueDate = const Value.absent(),
+    this.creditPaidAmount = const Value.absent(),
+    this.creditStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -469,6 +697,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
     Expression<DateTime>? transactionDate,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<bool>? isCredit,
+    Expression<String>? creditCustomerName,
+    Expression<DateTime>? creditDueDate,
+    Expression<int>? creditPaidAmount,
+    Expression<String>? creditStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -481,6 +714,12 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
       if (transactionDate != null) 'transaction_date': transactionDate,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (isCredit != null) 'is_credit': isCredit,
+      if (creditCustomerName != null)
+        'credit_customer_name': creditCustomerName,
+      if (creditDueDate != null) 'credit_due_date': creditDueDate,
+      if (creditPaidAmount != null) 'credit_paid_amount': creditPaidAmount,
+      if (creditStatus != null) 'credit_status': creditStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -495,6 +734,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
     Value<DateTime>? transactionDate,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<bool>? isCredit,
+    Value<String?>? creditCustomerName,
+    Value<DateTime?>? creditDueDate,
+    Value<int>? creditPaidAmount,
+    Value<String>? creditStatus,
     Value<int>? rowid,
   }) {
     return TransactionsCompanion(
@@ -507,6 +751,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
       transactionDate: transactionDate ?? this.transactionDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isCredit: isCredit ?? this.isCredit,
+      creditCustomerName: creditCustomerName ?? this.creditCustomerName,
+      creditDueDate: creditDueDate ?? this.creditDueDate,
+      creditPaidAmount: creditPaidAmount ?? this.creditPaidAmount,
+      creditStatus: creditStatus ?? this.creditStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -541,6 +790,21 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (isCredit.present) {
+      map['is_credit'] = Variable<bool>(isCredit.value);
+    }
+    if (creditCustomerName.present) {
+      map['credit_customer_name'] = Variable<String>(creditCustomerName.value);
+    }
+    if (creditDueDate.present) {
+      map['credit_due_date'] = Variable<DateTime>(creditDueDate.value);
+    }
+    if (creditPaidAmount.present) {
+      map['credit_paid_amount'] = Variable<int>(creditPaidAmount.value);
+    }
+    if (creditStatus.present) {
+      map['credit_status'] = Variable<String>(creditStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -559,6 +823,11 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRecord> {
           ..write('transactionDate: $transactionDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('isCredit: $isCredit, ')
+          ..write('creditCustomerName: $creditCustomerName, ')
+          ..write('creditDueDate: $creditDueDate, ')
+          ..write('creditPaidAmount: $creditPaidAmount, ')
+          ..write('creditStatus: $creditStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1041,6 +1310,486 @@ class BusinessSettingsCompanion extends UpdateCompanion<BusinessSettingRecord> {
   }
 }
 
+class $CreditPaymentsTable extends CreditPayments
+    with TableInfo<$CreditPaymentsTable, CreditPaymentRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CreditPaymentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'REFERENCES Transactions(id) ON DELETE CASCADE',
+  );
+  static const VerificationMeta _paymentAmountMeta = const VerificationMeta(
+    'paymentAmount',
+  );
+  @override
+  late final GeneratedColumn<int> paymentAmount = GeneratedColumn<int>(
+    'payment_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paymentDateMeta = const VerificationMeta(
+    'paymentDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> paymentDate = GeneratedColumn<DateTime>(
+    'payment_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    transactionId,
+    paymentAmount,
+    paymentDate,
+    notes,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'credit_payments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CreditPaymentRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transactionIdMeta);
+    }
+    if (data.containsKey('payment_amount')) {
+      context.handle(
+        _paymentAmountMeta,
+        paymentAmount.isAcceptableOrUnknown(
+          data['payment_amount']!,
+          _paymentAmountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_paymentAmountMeta);
+    }
+    if (data.containsKey('payment_date')) {
+      context.handle(
+        _paymentDateMeta,
+        paymentDate.isAcceptableOrUnknown(
+          data['payment_date']!,
+          _paymentDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_paymentDateMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CreditPaymentRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CreditPaymentRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      )!,
+      paymentAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}payment_amount'],
+      )!,
+      paymentDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}payment_date'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CreditPaymentsTable createAlias(String alias) {
+    return $CreditPaymentsTable(attachedDatabase, alias);
+  }
+}
+
+class CreditPaymentRecord extends DataClass
+    implements Insertable<CreditPaymentRecord> {
+  final String id;
+  final String transactionId;
+  final int paymentAmount;
+  final DateTime paymentDate;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const CreditPaymentRecord({
+    required this.id,
+    required this.transactionId,
+    required this.paymentAmount,
+    required this.paymentDate,
+    this.notes,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['transaction_id'] = Variable<String>(transactionId);
+    map['payment_amount'] = Variable<int>(paymentAmount);
+    map['payment_date'] = Variable<DateTime>(paymentDate);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  CreditPaymentsCompanion toCompanion(bool nullToAbsent) {
+    return CreditPaymentsCompanion(
+      id: Value(id),
+      transactionId: Value(transactionId),
+      paymentAmount: Value(paymentAmount),
+      paymentDate: Value(paymentDate),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory CreditPaymentRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CreditPaymentRecord(
+      id: serializer.fromJson<String>(json['id']),
+      transactionId: serializer.fromJson<String>(json['transactionId']),
+      paymentAmount: serializer.fromJson<int>(json['paymentAmount']),
+      paymentDate: serializer.fromJson<DateTime>(json['paymentDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'transactionId': serializer.toJson<String>(transactionId),
+      'paymentAmount': serializer.toJson<int>(paymentAmount),
+      'paymentDate': serializer.toJson<DateTime>(paymentDate),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  CreditPaymentRecord copyWith({
+    String? id,
+    String? transactionId,
+    int? paymentAmount,
+    DateTime? paymentDate,
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => CreditPaymentRecord(
+    id: id ?? this.id,
+    transactionId: transactionId ?? this.transactionId,
+    paymentAmount: paymentAmount ?? this.paymentAmount,
+    paymentDate: paymentDate ?? this.paymentDate,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  CreditPaymentRecord copyWithCompanion(CreditPaymentsCompanion data) {
+    return CreditPaymentRecord(
+      id: data.id.present ? data.id.value : this.id,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      paymentAmount: data.paymentAmount.present
+          ? data.paymentAmount.value
+          : this.paymentAmount,
+      paymentDate: data.paymentDate.present
+          ? data.paymentDate.value
+          : this.paymentDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CreditPaymentRecord(')
+          ..write('id: $id, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('paymentAmount: $paymentAmount, ')
+          ..write('paymentDate: $paymentDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    transactionId,
+    paymentAmount,
+    paymentDate,
+    notes,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CreditPaymentRecord &&
+          other.id == this.id &&
+          other.transactionId == this.transactionId &&
+          other.paymentAmount == this.paymentAmount &&
+          other.paymentDate == this.paymentDate &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class CreditPaymentsCompanion extends UpdateCompanion<CreditPaymentRecord> {
+  final Value<String> id;
+  final Value<String> transactionId;
+  final Value<int> paymentAmount;
+  final Value<DateTime> paymentDate;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const CreditPaymentsCompanion({
+    this.id = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.paymentAmount = const Value.absent(),
+    this.paymentDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CreditPaymentsCompanion.insert({
+    required String id,
+    required String transactionId,
+    required int paymentAmount,
+    required DateTime paymentDate,
+    this.notes = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       transactionId = Value(transactionId),
+       paymentAmount = Value(paymentAmount),
+       paymentDate = Value(paymentDate),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<CreditPaymentRecord> custom({
+    Expression<String>? id,
+    Expression<String>? transactionId,
+    Expression<int>? paymentAmount,
+    Expression<DateTime>? paymentDate,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (paymentAmount != null) 'payment_amount': paymentAmount,
+      if (paymentDate != null) 'payment_date': paymentDate,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CreditPaymentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? transactionId,
+    Value<int>? paymentAmount,
+    Value<DateTime>? paymentDate,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return CreditPaymentsCompanion(
+      id: id ?? this.id,
+      transactionId: transactionId ?? this.transactionId,
+      paymentAmount: paymentAmount ?? this.paymentAmount,
+      paymentDate: paymentDate ?? this.paymentDate,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (paymentAmount.present) {
+      map['payment_amount'] = Variable<int>(paymentAmount.value);
+    }
+    if (paymentDate.present) {
+      map['payment_date'] = Variable<DateTime>(paymentDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CreditPaymentsCompanion(')
+          ..write('id: $id, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('paymentAmount: $paymentAmount, ')
+          ..write('paymentDate: $paymentDate, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1048,6 +1797,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BusinessSettingsTable businessSettings = $BusinessSettingsTable(
     this,
   );
+  late final $CreditPaymentsTable creditPayments = $CreditPaymentsTable(this);
   late final TransactionDao transactionDao = TransactionDao(
     this as AppDatabase,
   );
@@ -1061,6 +1811,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     transactions,
     businessSettings,
+    creditPayments,
   ];
 }
 
@@ -1075,6 +1826,11 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required DateTime transactionDate,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<bool> isCredit,
+      Value<String?> creditCustomerName,
+      Value<DateTime?> creditDueDate,
+      Value<int> creditPaidAmount,
+      Value<String> creditStatus,
       Value<int> rowid,
     });
 typedef $$TransactionsTableUpdateCompanionBuilder =
@@ -1088,6 +1844,11 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<DateTime> transactionDate,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<bool> isCredit,
+      Value<String?> creditCustomerName,
+      Value<DateTime?> creditDueDate,
+      Value<int> creditPaidAmount,
+      Value<String> creditStatus,
       Value<int> rowid,
     });
 
@@ -1142,6 +1903,31 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCredit => $composableBuilder(
+    column: $table.isCredit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get creditCustomerName => $composableBuilder(
+    column: $table.creditCustomerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get creditDueDate => $composableBuilder(
+    column: $table.creditDueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get creditPaidAmount => $composableBuilder(
+    column: $table.creditPaidAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get creditStatus => $composableBuilder(
+    column: $table.creditStatus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1199,6 +1985,31 @@ class $$TransactionsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isCredit => $composableBuilder(
+    column: $table.isCredit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get creditCustomerName => $composableBuilder(
+    column: $table.creditCustomerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get creditDueDate => $composableBuilder(
+    column: $table.creditDueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get creditPaidAmount => $composableBuilder(
+    column: $table.creditPaidAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get creditStatus => $composableBuilder(
+    column: $table.creditStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TransactionsTableAnnotationComposer
@@ -1238,6 +2049,29 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCredit =>
+      $composableBuilder(column: $table.isCredit, builder: (column) => column);
+
+  GeneratedColumn<String> get creditCustomerName => $composableBuilder(
+    column: $table.creditCustomerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get creditDueDate => $composableBuilder(
+    column: $table.creditDueDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get creditPaidAmount => $composableBuilder(
+    column: $table.creditPaidAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get creditStatus => $composableBuilder(
+    column: $table.creditStatus,
+    builder: (column) => column,
+  );
 }
 
 class $$TransactionsTableTableManager
@@ -1284,6 +2118,11 @@ class $$TransactionsTableTableManager
                 Value<DateTime> transactionDate = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isCredit = const Value.absent(),
+                Value<String?> creditCustomerName = const Value.absent(),
+                Value<DateTime?> creditDueDate = const Value.absent(),
+                Value<int> creditPaidAmount = const Value.absent(),
+                Value<String> creditStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
@@ -1295,6 +2134,11 @@ class $$TransactionsTableTableManager
                 transactionDate: transactionDate,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                isCredit: isCredit,
+                creditCustomerName: creditCustomerName,
+                creditDueDate: creditDueDate,
+                creditPaidAmount: creditPaidAmount,
+                creditStatus: creditStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1308,6 +2152,11 @@ class $$TransactionsTableTableManager
                 required DateTime transactionDate,
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<bool> isCredit = const Value.absent(),
+                Value<String?> creditCustomerName = const Value.absent(),
+                Value<DateTime?> creditDueDate = const Value.absent(),
+                Value<int> creditPaidAmount = const Value.absent(),
+                Value<String> creditStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionsCompanion.insert(
                 id: id,
@@ -1319,6 +2168,11 @@ class $$TransactionsTableTableManager
                 transactionDate: transactionDate,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                isCredit: isCredit,
+                creditCustomerName: creditCustomerName,
+                creditDueDate: creditDueDate,
+                creditPaidAmount: creditPaidAmount,
+                creditStatus: creditStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -1598,6 +2452,260 @@ typedef $$BusinessSettingsTableProcessedTableManager =
       BusinessSettingRecord,
       PrefetchHooks Function()
     >;
+typedef $$CreditPaymentsTableCreateCompanionBuilder =
+    CreditPaymentsCompanion Function({
+      required String id,
+      required String transactionId,
+      required int paymentAmount,
+      required DateTime paymentDate,
+      Value<String?> notes,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$CreditPaymentsTableUpdateCompanionBuilder =
+    CreditPaymentsCompanion Function({
+      Value<String> id,
+      Value<String> transactionId,
+      Value<int> paymentAmount,
+      Value<DateTime> paymentDate,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$CreditPaymentsTableFilterComposer
+    extends Composer<_$AppDatabase, $CreditPaymentsTable> {
+  $$CreditPaymentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paymentAmount => $composableBuilder(
+    column: $table.paymentAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get paymentDate => $composableBuilder(
+    column: $table.paymentDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CreditPaymentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CreditPaymentsTable> {
+  $$CreditPaymentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paymentAmount => $composableBuilder(
+    column: $table.paymentAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get paymentDate => $composableBuilder(
+    column: $table.paymentDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CreditPaymentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CreditPaymentsTable> {
+  $$CreditPaymentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get paymentAmount => $composableBuilder(
+    column: $table.paymentAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get paymentDate => $composableBuilder(
+    column: $table.paymentDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$CreditPaymentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CreditPaymentsTable,
+          CreditPaymentRecord,
+          $$CreditPaymentsTableFilterComposer,
+          $$CreditPaymentsTableOrderingComposer,
+          $$CreditPaymentsTableAnnotationComposer,
+          $$CreditPaymentsTableCreateCompanionBuilder,
+          $$CreditPaymentsTableUpdateCompanionBuilder,
+          (
+            CreditPaymentRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $CreditPaymentsTable,
+              CreditPaymentRecord
+            >,
+          ),
+          CreditPaymentRecord,
+          PrefetchHooks Function()
+        > {
+  $$CreditPaymentsTableTableManager(
+    _$AppDatabase db,
+    $CreditPaymentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CreditPaymentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CreditPaymentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CreditPaymentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> transactionId = const Value.absent(),
+                Value<int> paymentAmount = const Value.absent(),
+                Value<DateTime> paymentDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CreditPaymentsCompanion(
+                id: id,
+                transactionId: transactionId,
+                paymentAmount: paymentAmount,
+                paymentDate: paymentDate,
+                notes: notes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String transactionId,
+                required int paymentAmount,
+                required DateTime paymentDate,
+                Value<String?> notes = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CreditPaymentsCompanion.insert(
+                id: id,
+                transactionId: transactionId,
+                paymentAmount: paymentAmount,
+                paymentDate: paymentDate,
+                notes: notes,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CreditPaymentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CreditPaymentsTable,
+      CreditPaymentRecord,
+      $$CreditPaymentsTableFilterComposer,
+      $$CreditPaymentsTableOrderingComposer,
+      $$CreditPaymentsTableAnnotationComposer,
+      $$CreditPaymentsTableCreateCompanionBuilder,
+      $$CreditPaymentsTableUpdateCompanionBuilder,
+      (
+        CreditPaymentRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $CreditPaymentsTable,
+          CreditPaymentRecord
+        >,
+      ),
+      CreditPaymentRecord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1606,4 +2714,6 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$BusinessSettingsTableTableManager get businessSettings =>
       $$BusinessSettingsTableTableManager(_db, _db.businessSettings);
+  $$CreditPaymentsTableTableManager get creditPayments =>
+      $$CreditPaymentsTableTableManager(_db, _db.creditPayments);
 }

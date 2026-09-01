@@ -33,12 +33,12 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
-        await migrator.addColumn(Transactions, Transactions.isCredit);
-        await migrator.addColumn(Transactions, Transactions.creditCustomerName);
-        await migrator.addColumn(Transactions, Transactions.creditDueDate);
-        await migrator.addColumn(Transactions, Transactions.creditPaidAmount);
-        await migrator.addColumn(Transactions, Transactions.creditStatus);
-        await migrator.createTable(CreditPayments);
+        await migrator.addColumn(transactions, transactions.isCredit);
+        await migrator.addColumn(transactions, transactions.creditCustomerName);
+        await migrator.addColumn(transactions, transactions.creditDueDate);
+        await migrator.addColumn(transactions, transactions.creditPaidAmount);
+        await migrator.addColumn(transactions, transactions.creditStatus);
+        await migrator.createTable(creditPayments);
       }
     },
     beforeOpen: (details) async {

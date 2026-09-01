@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/formatters/date_formatter.dart';
-import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../domain/finance_transaction.dart';
 import '../providers/transaction_providers.dart';
@@ -108,8 +107,6 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
 
   Widget _buildCreditCard(BuildContext context, FinanceTransaction credit) {
     final remaining = credit.creditRemainingAmount;
-    final isPending = credit.creditStatus == CreditStatus.pending;
-    final isPartial = credit.creditStatus == CreditStatus.partial;
     final isPaid = credit.creditStatus == CreditStatus.paid;
 
     return Card(

@@ -9,12 +9,13 @@ import 'package:sqlite3/sqlite3.dart';
 import 'daos/business_settings_dao.dart';
 import 'daos/transaction_dao.dart';
 import 'tables/business_settings.dart';
+import 'tables/credit_payments.dart';
 import 'tables/transactions.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: [Transactions, BusinessSettings],
+  tables: [Transactions, BusinessSettings, CreditPayments],
   daos: [TransactionDao, BusinessSettingsDao],
 )
 class AppDatabase extends _$AppDatabase {
@@ -23,7 +24,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -31,9 +32,13 @@ class AppDatabase extends _$AppDatabase {
       await migrator.createAll();
     },
     onUpgrade: (migrator, from, to) async {
-      // Schema v1 is the baseline. Future migrations are added here in order.
-      if (from < 1) {
-        await migrator.createAll();
+      if (from < 2) {
+        await migrator.addColumn(Transactions, Transactions.isCredit);
+        await migrator.addColumn(Transactions, Transactions.creditCustomerName);
+        await migrator.addColumn(Transactions, Transactions.creditDueDate);
+        await migrator.addColumn(Transactions, Transactions.creditPaidAmount);
+        await migrator.addColumn(Transactions, Transactions.creditStatus);
+        await migrator.createTable(CreditPayments);
       }
     },
     beforeOpen: (details) async {

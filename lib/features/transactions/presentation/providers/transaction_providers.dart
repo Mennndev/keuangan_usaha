@@ -38,6 +38,10 @@ final cashFlowProvider = StreamProvider.autoDispose
       return ref.watch(transactionRepositoryProvider).watchCashFlow(request);
     });
 
+final creditsProvider = FutureProvider.autoDispose<List<FinanceTransaction>>(
+  (ref) => ref.watch(transactionRepositoryProvider).getCredits(),
+);
+
 final transactionControllerProvider =
     AsyncNotifierProvider<TransactionController, void>(
       TransactionController.new,
@@ -85,6 +89,21 @@ class TransactionController extends AsyncNotifier<void> {
       final deleted = await _repository.delete(id);
       if (!deleted) {
         throw StateError('Transaksi tidak ditemukan.');
+      }
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> recordCreditPayment(String transactionId, int paymentAmount) async {
+    _guardDoubleSubmit();
+    state = const AsyncLoading();
+    try {
+      final updated = await _repository.recordCreditPayment(transactionId, paymentAmount);
+      if (!updated) {
+        throw StateError('Transaksi kredit tidak ditemukan.');
       }
       state = const AsyncData(null);
     } catch (error, stackTrace) {

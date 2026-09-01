@@ -27,6 +27,11 @@ class TransactionRepository {
         transactionDate: input.transactionDate,
         createdAt: now,
         updatedAt: now,
+        isCredit: Value(input.isCredit),
+        creditCustomerName: Value(_optionalText(input.creditCustomerName)),
+        creditDueDate: Value(input.creditDueDate),
+        creditPaidAmount: const Value(0),
+        creditStatus: const Value('pending'),
       ),
     );
     return id;
@@ -43,6 +48,9 @@ class TransactionRepository {
         notes: Value(_optionalText(input.notes)),
         transactionDate: Value(input.transactionDate),
         updatedAt: Value(DateTime.now()),
+        isCredit: Value(input.isCredit),
+        creditCustomerName: Value(_optionalText(input.creditCustomerName)),
+        creditDueDate: Value(input.creditDueDate),
       ),
     );
   }
@@ -112,6 +120,15 @@ class TransactionRepository {
     return records.map(_map).toList(growable: false);
   }
 
+  Future<List<FinanceTransaction>> getCredits({bool includePaid = false}) async {
+    final records = await _dao.getAllTransactions();
+    return records
+        .where((r) => r.isCredit)
+        .where((r) => includePaid || r.creditStatus != 'paid')
+        .map(_map)
+        .toList(growable: false);
+  }
+
   FinanceTransaction _map(TransactionRecord record) {
     return FinanceTransaction(
       id: record.id,
@@ -123,6 +140,40 @@ class TransactionRepository {
       transactionDate: record.transactionDate,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      isCredit: record.isCredit,
+      creditCustomerName: record.creditCustomerName,
+      creditDueDate: record.creditDueDate,
+      creditPaidAmount: record.creditPaidAmount,
+      creditStatus: CreditStatusX.fromDatabase(record.creditStatus),
+    );
+  }
+
+  Future<bool> recordCreditPayment(
+    String transactionId,
+    int paymentAmount,
+  ) async {
+    final transaction = await findById(transactionId);
+    if (transaction == null || !transaction.isCredit) return false;
+
+    final newPaidAmount = transaction.creditPaidAmount + paymentAmount;
+    final remaining = transaction.amount - newPaidAmount;
+    
+    String newStatus;
+    if (remaining <= 0) {
+      newStatus = 'paid';
+    } else if (newPaidAmount > 0) {
+      newStatus = 'partial';
+    } else {
+      newStatus = 'pending';
+    }
+
+    return _dao.updateTransaction(
+      transactionId,
+      TransactionsCompanion(
+        creditPaidAmount: Value(newPaidAmount),
+        creditStatus: Value(newStatus),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
   }
 }

@@ -161,8 +161,8 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     $customConstraints:
-        'CHECK (creditStatus IN (\'pending\', \'partial\', \'paid\'))',
-    defaultValue: const Constant('pending'),
+        'NOT NULL DEFAULT \'pending\' CHECK (credit_status IN (\'pending\', \'partial\', \'paid\'))',
+    defaultValue: const CustomExpression('\'pending\''),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -1335,7 +1335,8 @@ class $CreditPaymentsTable extends CreditPayments
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    $customConstraints: 'REFERENCES Transactions(id) ON DELETE CASCADE',
+    $customConstraints:
+        'NOT NULL REFERENCES transactions(id) ON DELETE CASCADE',
   );
   static const VerificationMeta _paymentAmountMeta = const VerificationMeta(
     'paymentAmount',

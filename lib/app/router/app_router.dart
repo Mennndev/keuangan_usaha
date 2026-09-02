@@ -10,6 +10,7 @@ import '../../features/transactions/domain/finance_transaction.dart';
 import '../../features/transactions/presentation/screens/transaction_detail_screen.dart';
 import '../../features/transactions/presentation/screens/transaction_form_screen.dart';
 import '../../features/transactions/presentation/screens/transactions_screen.dart';
+import '../../features/transactions/presentation/screens/credits_screen.dart';
 
 final appRouter = GoRouter(
   routes: [
@@ -52,11 +53,17 @@ final appRouter = GoRouter(
             ),
           ],
         ),
+           GoRoute(
+        path: '/credits',
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: CreditsScreen()),
+      ),
         GoRoute(
           path: '/reports',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: ReportsScreen()),
         ),
+           
         GoRoute(
           path: '/settings',
           pageBuilder: (context, state) =>

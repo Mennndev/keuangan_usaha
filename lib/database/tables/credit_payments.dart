@@ -4,8 +4,8 @@ import 'package:drift/drift.dart';
 class CreditPayments extends Table {
   TextColumn get id => text()();
 
-  TextColumn get transactionId =>
-      text().customConstraint('REFERENCES Transactions(id) ON DELETE CASCADE')();
+TextColumn get transactionId => text().customConstraint(
+  'NOT NULL REFERENCES transactions(id) ON DELETE CASCADE',)();
 
   IntColumn get paymentAmount => integer()();
 

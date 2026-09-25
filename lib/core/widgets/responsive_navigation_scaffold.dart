@@ -26,6 +26,11 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
       label: 'Transaksi',
     ),
     NavigationDestination(
+      icon: Icon(Icons.credit_card_outlined),
+      selectedIcon: Icon(Icons.credit_card),
+      label: 'Kredit',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.bar_chart_outlined),
       selectedIcon: Icon(Icons.bar_chart_rounded),
       label: 'Laporan',
@@ -39,13 +44,14 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
 
   int get _selectedIndex {
     if (location.startsWith('/transactions')) return 1;
-    if (location.startsWith('/reports')) return 2;
-    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/credits')) return 2;
+    if (location.startsWith('/reports')) return 3;
+    if (location.startsWith('/settings')) return 4;
     return 0;
   }
 
   void _navigate(BuildContext context, int index) {
-    const routes = ['/', '/transactions', '/reports', '/settings'];
+    const routes = ['/', '/transactions', '/credits', '/reports', '/settings'];
     if (index != _selectedIndex) context.go(routes[index]);
   }
 
@@ -61,6 +67,9 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) => _navigate(context, index),
               destinations: _destinations,
+              // Menambahkan behavior ini agar teks label hanya muncul 
+              // di menu yang sedang aktif. Ini akan mencegah overflow (teks kepanjangan/melebar).
+              labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
             ),
           );
         }

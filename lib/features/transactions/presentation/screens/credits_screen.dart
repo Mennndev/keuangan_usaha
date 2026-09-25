@@ -148,49 +148,58 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    Text(
-                      CurrencyFormatter.format(credit.amount),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sudah Dibayar',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    Text(
-                      CurrencyFormatter.format(credit.creditPaidAmount),
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.green,
-                          ),
-                    ),
-                  ],
-                ),
-                if (remaining > 0)
-                  Column(
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Sisa',
+                        'Total',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                       Text(
-                        CurrencyFormatter.format(remaining),
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: isPaid ? Colors.green : Colors.orange,
-                            ),
+                        CurrencyFormatter.format(credit.amount),
+                        style: Theme.of(context).textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sudah Dibayar',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      Text(
+                        CurrencyFormatter.format(credit.creditPaidAmount),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.green,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (remaining > 0)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sisa',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        Text(
+                          CurrencyFormatter.format(remaining),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: isPaid ? Colors.green : Colors.orange,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -198,22 +207,29 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Jatuh Tempo',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    Text(
-                      AppDateFormatter.long(
-                        credit.creditDueDate ?? credit.transactionDate,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Jatuh Tempo',
+                        style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
+                      Text(
+                        AppDateFormatter.long(
+                          credit.creditDueDate ?? credit.transactionDate,
+                        ),
+                        style: Theme.of(context).textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                Row(
+                const SizedBox(width: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
                   children: [
                     OutlinedButton.icon(
                       onPressed: () => context.push(
@@ -222,7 +238,6 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
                       icon: const Icon(Icons.visibility_outlined),
                       label: const Text('Detail'),
                     ),
-                    const SizedBox(width: 8),
                     if (!isPaid)
                       FilledButton.icon(
                         onPressed: () => _showPaymentDialog(context, credit),

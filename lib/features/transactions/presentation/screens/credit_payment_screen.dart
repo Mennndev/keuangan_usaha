@@ -6,10 +6,7 @@ import '../../domain/finance_transaction.dart';
 import '../providers/transaction_providers.dart';
 
 class CreditPaymentDialog extends ConsumerStatefulWidget {
-  const CreditPaymentDialog({
-    required this.transaction,
-    super.key,
-  });
+  const CreditPaymentDialog({required this.transaction, super.key});
 
   final FinanceTransaction transaction;
 
@@ -61,7 +58,11 @@ class _CreditPaymentDialogState extends ConsumerState<CreditPaymentDialog> {
 
     try {
       final controller = ref.read(transactionControllerProvider.notifier);
-      await controller.recordCreditPayment(widget.transaction.id, amount);
+      await controller.recordCreditPayment(
+        widget.transaction.id,
+        amount,
+        notes: _notesController.text,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,9 +72,9 @@ class _CreditPaymentDialogState extends ConsumerState<CreditPaymentDialog> {
       ref.invalidate(creditsProvider);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mencatat pembayaran: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mencatat pembayaran: $e')));
       setState(() => _submitting = false);
     }
   }

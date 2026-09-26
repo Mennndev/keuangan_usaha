@@ -12,6 +12,7 @@ import '../../../core/widgets/finance_summary_card.dart';
 import '../../../core/widgets/period_selector.dart';
 import '../../../core/widgets/transaction_list_item.dart';
 import '../../transactions/domain/finance_summary.dart';
+import '../../transactions/domain/finance_transaction.dart';
 import '../../transactions/domain/transaction_filter.dart';
 import '../../transactions/presentation/providers/transaction_providers.dart';
 
@@ -24,6 +25,7 @@ class ReportsScreen extends ConsumerStatefulWidget {
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   bool _yearly = false;
+  TransactionType _categoryType = TransactionType.expense;
   DateTime _anchor = DateTime.now();
 
   PeriodRange get _range {
@@ -60,7 +62,22 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final range = _range;
+    final previousRange = _yearly
+        ? PeriodRange(
+            start: DateTime(_anchor.year - 1),
+            end: DateTime(_anchor.year),
+          )
+        : PeriodRange(
+            start: DateTime(_anchor.year, _anchor.month - 1),
+            end: DateTime(_anchor.year, _anchor.month),
+          );
     final totals = ref.watch(financeTotalsProvider(range));
+    final previousTotals = ref.watch(financeTotalsProvider(previousRange));
+    final categoryTotals = ref.watch(
+      categoryTotalsProvider(
+        CategoryReportRequest(range: range, type: _categoryType),
+      ),
+    );
     final points = ref.watch(
       cashFlowProvider(CashFlowRequest(range: range, groupByMonth: _yearly)),
     );
@@ -127,7 +144,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         onRetry: () =>
                             ref.invalidate(financeTotalsProvider(range)),
                       ),
-                      data: (summary) => _SummaryGrid(summary: summary),
+                      data: (summary) => Column(
+                        children: [
+                          _SummaryGrid(summary: summary),
+                          const SizedBox(height: 12),
+                          _PeriodComparison(
+                            current: summary,
+                            previous: previousTotals,
+                            previousLabel: _yearly
+                                ? 'tahun sebelumnya'
+                                : 'bulan sebelumnya',
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     LayoutBuilder(
@@ -227,6 +256,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       },
                     ),
                     const SizedBox(height: 24),
+                    _CategoryBreakdown(
+                      type: _categoryType,
+                      totals: categoryTotals,
+                      onTypeChanged: (type) =>
+                          setState(() => _categoryType = type),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
                       'Transaksi dalam periode',
                       style: Theme.of(context).textTheme.titleMedium,
@@ -290,6 +326,209 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryBreakdown extends StatelessWidget {
+  const _CategoryBreakdown({
+    required this.type,
+    required this.totals,
+    required this.onTypeChanged,
+  });
+
+  final TransactionType type;
+  final AsyncValue<List<CategoryFinanceSummary>> totals;
+  final ValueChanged<TransactionType> onTypeChanged;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Rincian per kategori',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<TransactionType>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: TransactionType.expense,
+                label: Text('Pengeluaran'),
+              ),
+              ButtonSegment(
+                value: TransactionType.income,
+                label: Text('Pemasukan'),
+              ),
+            ],
+            selected: {type},
+            onSelectionChanged: (selection) => onTypeChanged(selection.single),
+          ),
+          const SizedBox(height: 14),
+          totals.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (error, stack) =>
+                const Text('Rincian kategori belum dapat dimuat.'),
+            data: (items) {
+              if (items.isEmpty)
+                return const Text(
+                  'Belum ada transaksi pada kategori ini di periode terpilih.',
+                );
+              final maximum = items.first.amount;
+              return Column(
+                children: [
+                  for (final item in items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.category,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              Text(
+                                CurrencyFormatter.format(item.amount),
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: maximum == 0 ? 0 : item.amount / maximum,
+                              minHeight: 7,
+                              color: type == TransactionType.expense
+                                  ? Theme.of(context).colorScheme.error
+                                  : Theme.of(context).colorScheme.primary,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${item.transactionCount} transaksi',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PeriodComparison extends StatelessWidget {
+  const _PeriodComparison({
+    required this.current,
+    required this.previous,
+    required this.previousLabel,
+  });
+  final FinanceSummary current;
+  final AsyncValue<FinanceSummary> previous;
+  final String previousLabel;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: previous.when(
+        loading: () => const LinearProgressIndicator(),
+        error: (error, stack) =>
+            const Text('Perbandingan periode sebelumnya belum tersedia.'),
+        data: (prior) {
+          final incomeDelta = current.income - prior.income;
+          final expenseDelta = current.expense - prior.expense;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dibanding $previousLabel',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ComparisonValue(
+                      label: 'Pemasukan',
+                      current: current.income,
+                      previous: prior.income,
+                      delta: incomeDelta,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ComparisonValue(
+                      label: 'Pengeluaran',
+                      current: current.expense,
+                      previous: prior.expense,
+                      delta: expenseDelta,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _ComparisonValue extends StatelessWidget {
+  const _ComparisonValue({
+    required this.label,
+    required this.current,
+    required this.previous,
+    required this.delta,
+  });
+  final String label;
+  final int current;
+  final int previous;
+  final int delta;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = delta >= 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 3),
+        Text(
+          CurrencyFormatter.format(current),
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        Text(
+          '${positive ? 'Naik' : 'Turun'} ${CurrencyFormatter.format(delta.abs())} · sebelumnya ${CurrencyFormatter.format(previous)}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: positive
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
           ),
         ),
       ],

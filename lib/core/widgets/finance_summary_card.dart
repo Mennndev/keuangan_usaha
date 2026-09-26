@@ -36,15 +36,23 @@ class FinanceSummaryCard extends StatelessWidget {
       ),
       SummaryTone.info => (colors.infoSurface, colors.info, null),
     };
+    final cardIcon =
+        icon ??
+        switch (tone) {
+          SummaryTone.income => Icons.trending_up_rounded,
+          SummaryTone.expense => Icons.trending_down_rounded,
+          SummaryTone.info => Icons.account_balance_wallet_rounded,
+        };
     return Semantics(
       container: true,
       label: label,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 104),
-        padding: const EdgeInsets.all(16),
+        constraints: const BoxConstraints(minHeight: 120),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(16),
+          color: Color.lerp(colors.card, surface, .72),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: foreground.withValues(alpha: .13)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,28 +60,42 @@ class FinanceSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 18, color: foreground),
-                  const SizedBox(width: 8),
-                ],
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(cardIcon, size: 18, color: foreground),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            CurrencyText(
-              amount: amount,
-              type: type,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: foreground),
+            const SizedBox(height: 14),
+            FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: CurrencyText(
+                amount: amount,
+                type: type,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),

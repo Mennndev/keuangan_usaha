@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/formatters/date_formatter.dart';
+import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../../core/widgets/currency_text.dart';
@@ -66,6 +67,12 @@ class TransactionDetailScreen extends ConsumerWidget {
             ),
           );
         }
+        final paymentHistory = value.isCredit
+            ? ref.watch(creditPaymentHistoryProvider(value.id))
+            : null;
+        final productSales = value.type == TransactionType.income
+            ? ref.watch(productSaleProvider(value.id))
+            : null;
         return CustomScrollView(
           slivers: [
             SliverPadding(
@@ -138,6 +145,51 @@ class TransactionDetailScreen extends ConsumerWidget {
                                 label: 'Keterangan',
                                 value: value.notes!,
                               ),
+                            if (!value.isCredit &&
+                                value.creditCustomerName != null)
+                              _DetailRow(
+                                label: 'Pelanggan',
+                                value: value.creditCustomerName!,
+                              ),
+                            if (productSales != null) ...[
+                              const Divider(height: 32),
+                              Text(
+                                'Produk terjual',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              productSales.when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (error, stack) => const Text(
+                                  'Daftar produk transaksi belum dapat dimuat.',
+                                ),
+                                data: (sales) => sales.isEmpty
+                                    ? const Text(
+                                        'Transaksi tanpa produk terdaftar.',
+                                      )
+                                    : Column(
+                                        children: sales
+                                            .map(
+                                              (sale) => ListTile(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text(
+                                                  '${sale.productName} · ${sale.brand}',
+                                                ),
+                                                subtitle: Text(
+                                                  '${sale.quantity} × ${CurrencyFormatter.format(sale.unitPrice)}',
+                                                ),
+                                                trailing: Text(
+                                                  CurrencyFormatter.format(
+                                                    sale.quantity *
+                                                        sale.unitPrice,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                              ),
+                            ],
                             if (value.isCredit) ...[
                               const Divider(height: 32),
                               Text(
@@ -156,8 +208,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                               _DetailRow(
                                 label: 'Jatuh Tempo',
                                 value: AppDateFormatter.long(
-                                  value.creditDueDate ??
-                                      value.transactionDate,
+                                  value.creditDueDate ?? value.transactionDate,
                                 ),
                               ),
                               _DetailRow(
@@ -174,6 +225,42 @@ class TransactionDetailScreen extends ConsumerWidget {
                                 label: 'Sisa Cicilan',
                                 value:
                                     'Rp ${value.creditRemainingAmount.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                              ),
+                              const Divider(height: 32),
+                              Text(
+                                'Riwayat pembayaran',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              paymentHistory!.when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (error, stack) => const Text(
+                                  'Riwayat pembayaran belum dapat dimuat.',
+                                ),
+                                data: (payments) => payments.isEmpty
+                                    ? const Text(
+                                        'Belum ada pembayaran yang dicatat.',
+                                      )
+                                    : Column(
+                                        children: payments
+                                            .map(
+                                              (payment) => ListTile(
+                                                contentPadding: EdgeInsets.zero,
+                                                leading: const Icon(
+                                                  Icons.payments_outlined,
+                                                ),
+                                                title: Text(
+                                                  CurrencyFormatter.format(
+                                                    payment.paymentAmount,
+                                                  ),
+                                                ),
+                                                subtitle: Text(
+                                                  '${AppDateFormatter.long(payment.paymentDate)}${payment.notes == null ? '' : ' · ${payment.notes}'}',
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
                               ),
                             ],
                             _DetailRow(

@@ -70,7 +70,7 @@ class FinanceTransaction {
   final DateTime transactionDate;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
   // Credit fields
   final bool isCredit;
   final String? creditCustomerName;
@@ -79,7 +79,7 @@ class FinanceTransaction {
   final CreditStatus creditStatus;
 
   int get creditRemainingAmount => amount - creditPaidAmount;
-  
+
   bool get isCreditPending => isCredit && creditStatus == CreditStatus.pending;
   bool get isCreditPartial => isCredit && creditStatus == CreditStatus.partial;
   bool get isCreditPaid => isCredit && creditStatus == CreditStatus.paid;
@@ -96,6 +96,7 @@ class TransactionInput {
     this.isCredit = false,
     this.creditCustomerName,
     this.creditDueDate,
+    this.products = const [],
   });
 
   final TransactionType type;
@@ -104,9 +105,20 @@ class TransactionInput {
   final String? category;
   final String? notes;
   final DateTime transactionDate;
-  
+
   // Credit fields
   final bool isCredit;
   final String? creditCustomerName;
   final DateTime? creditDueDate;
+  final List<TransactionProductInput> products;
+}
+
+class TransactionProductInput {
+  const TransactionProductInput({
+    required this.productId,
+    required this.quantity,
+  });
+
+  final String productId;
+  final int quantity;
 }

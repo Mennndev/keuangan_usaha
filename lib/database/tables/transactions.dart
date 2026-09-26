@@ -31,9 +31,9 @@ class Transactions extends Table {
 
   IntColumn get creditPaidAmount => integer().withDefault(const Constant(0))();
 
-    TextColumn get creditStatus => text().customConstraint(
-  "NOT NULL DEFAULT 'pending' CHECK (credit_status IN ('pending', 'partial', 'paid'))",
-)();
+  TextColumn get creditStatus => text().customConstraint(
+    "NOT NULL DEFAULT 'pending' CHECK (credit_status IN ('pending', 'partial', 'paid'))",
+  )();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

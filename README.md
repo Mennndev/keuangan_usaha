@@ -8,7 +8,19 @@ Aplikasi Flutter offline-first untuk mencatat pemasukan dan pengeluaran usaha ke
 - CRUD transaksi lengkap dengan route detail/edit, validasi, konfirmasi perubahan belum disimpan, dan dialog hapus.
 - Search dengan debounce, filter jenis/rentang tanggal, empat urutan, serta lazy limit 30 item.
 - Laporan bulanan/tahunan dari query agregasi SQLite tanpa data contoh.
+- Laporan merinci pemasukan atau pengeluaran per kategori, diurutkan dari nilai terbesar, beserta jumlah transaksinya.
 - Profil usaha, tema sistem/terang/gelap, ekspor CSV, dan penghapusan seluruh data dengan konfirmasi berlapis.
+- Katalog produk dengan brand Vanestrix, Dioses, Vinbee, dan Zahwa; harga jual, stok, riwayat restok, dan performa penjualan bulanan.
+- Pemasukan dapat memilih satu produk dan jumlah terjual. Nilai pemasukan dihitung dari harga produk dan stok berkurang secara atomik; harga pada transaksi lama tetap tersimpan sebagai snapshot.
+- Riwayat cicilan kredit menampilkan tanggal, nominal, dan catatan pembayaran.
+- Pelanggan dapat disimpan dan dipilih dari transaksi pemasukan; untuk kredit nama pelanggan wajib diisi. Riwayat pemasukan dan kredit pelanggan dapat dibuka dari menu Pelanggan.
+- Data pelanggan dapat dicari berdasarkan nama atau nomor kontak, diedit, dan diekspor ke CSV.
+- Peringatan restok muncul untuk produk dengan stok 5 unit atau kurang, termasuk produk yang sudah habis.
+- Pengingat di menu Kredit menyorot tagihan yang terlambat dan yang jatuh tempo dalam 7 hari.
+- Laporan menampilkan perbandingan pemasukan dan pengeluaran dengan bulan atau tahun sebelumnya.
+- Cadangan JSON mencakup pelanggan, transaksi, produk, riwayat stok, penjualan produk, dan pembayaran kredit. Pemulihan menggabungkan data; data lama tidak dihapus dan ID yang sudah ada dilewati.
+- Cadangan JSON dapat disimpan langsung lewat pemilih folder bawaan perangkat atau dibagikan ke aplikasi lain.
+- Sebelum pemulihan cadangan, aplikasi menampilkan tanggal cadangan dan jumlah data per jenis agar isinya bisa diperiksa. Pemulihan hanya berjalan setelah konfirmasi.
 - Empty, loading, no-result, error, dan retry state berbahasa Indonesia.
 - Navigasi bawah untuk lebar `<600`, NavigationRail untuk `600–1023`, dan sidebar extended untuk `>=1024`.
 
@@ -36,7 +48,7 @@ flutter test
 
 ## Schema database
 
-Schema Drift dimulai dari version 1 dan memiliki migration strategy eksplisit.
+Schema Drift menggunakan migration strategy eksplisit. Data katalog dan pergerakan stok dibuat saat database dibuat atau dimigrasikan.
 
 `transactions`:
 
@@ -54,6 +66,8 @@ Schema Drift dimulai dari version 1 dan memiliki migration strategy eksplisit.
 - `created_at`, `updated_at`.
 
 Total dan saldo tidak disimpan. Nilainya dihitung dari transaksi, sementara laporan memakai agregasi SQL reaktif.
+
+`inventory_products` menyimpan nama produk, brand, harga jual, dan stok. `inventory_stock_movements` menyimpan riwayat stok masuk, penjualan, dan pengembalian stok. `product_sales` menyimpan jumlah dan snapshot harga jual per transaksi untuk analisis penjualan berdasarkan bulan.
 
 ## Dependency dan alasan
 

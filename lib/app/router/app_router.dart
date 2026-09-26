@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/responsive_navigation_scaffold.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/customers/presentation/customers_screen.dart';
+import '../../features/products/presentation/products_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/transactions/domain/finance_transaction.dart';
@@ -53,17 +55,27 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-           GoRoute(
-        path: '/credits',
-        pageBuilder: (context, state) =>
-            const NoTransitionPage(child: CreditsScreen()),
-      ),
+        GoRoute(
+          path: '/credits',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CreditsScreen()),
+        ),
         GoRoute(
           path: '/reports',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: ReportsScreen()),
         ),
-           
+        GoRoute(
+          path: '/products',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ProductsScreen()),
+        ),
+        GoRoute(
+          path: '/customers',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CustomersScreen()),
+        ),
+
         GoRoute(
           path: '/settings',
           pageBuilder: (context, state) =>

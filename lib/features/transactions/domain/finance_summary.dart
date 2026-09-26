@@ -70,3 +70,31 @@ class CashFlowRequest {
   @override
   int get hashCode => Object.hash(range, groupByMonth);
 }
+
+class CategoryFinanceSummary {
+  const CategoryFinanceSummary({
+    required this.category,
+    required this.amount,
+    required this.transactionCount,
+  });
+
+  final String category;
+  final int amount;
+  final int transactionCount;
+}
+
+class CategoryReportRequest {
+  const CategoryReportRequest({required this.range, required this.type});
+
+  final PeriodRange range;
+  final TransactionType type;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CategoryReportRequest &&
+      other.range == range &&
+      other.type == type;
+
+  @override
+  int get hashCode => Object.hash(range, type);
+}

@@ -25,18 +25,26 @@ class EmptyState extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 22),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: colors.outlineVariant.withValues(alpha: .7),
+              ),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: colors.primaryContainer,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
                     child: Icon(
                       icon,
                       size: 32,

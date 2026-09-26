@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/formatters/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -18,21 +17,21 @@ import '../../transactions/presentation/providers/transaction_providers.dart';
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  PeriodRange _currentMonth() {
+  PeriodRange _lastTwelveMonths() {
     final now = DateTime.now();
     return PeriodRange(
-      start: DateTime(now.year, now.month),
+      start: DateTime(now.year, now.month - 11),
       end: DateTime(now.year, now.month + 1),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = _currentMonth();
-    final totals = ref.watch(financeTotalsProvider(range));
+    final range = _lastTwelveMonths();
+    final totals = ref.watch(allTimeFinanceTotalsProvider);
     final latest = ref.watch(latestTransactionsProvider(5));
     final points = ref.watch(
-      cashFlowProvider(CashFlowRequest(range: range, groupByMonth: false)),
+      cashFlowProvider(CashFlowRequest(range: range, groupByMonth: true)),
     );
     final profile = ref.watch(businessProfileProvider).value;
 
@@ -44,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
             child: AppPageHeader(
               title: 'Beranda',
               subtitle:
-                  'Ringkasan ${profile?.businessName ?? 'keuangan usaha Anda'}',
+                  'Semua transaksi sejak pencatatan dimulai · ${profile?.businessName ?? 'Usaha Anda'}',
             ),
           ),
         ),
@@ -55,7 +54,7 @@ class DashboardScreen extends ConsumerWidget {
               loading: () => const _DashboardLoading(),
               error: (error, stackTrace) => ErrorState(
                 message: 'Ringkasan keuangan belum dapat dihitung.',
-                onRetry: () => ref.invalidate(financeTotalsProvider(range)),
+                onRetry: () => ref.invalidate(allTimeFinanceTotalsProvider),
               ),
               data: (summary) => latest.when(
                 loading: () => const _DashboardLoading(),
@@ -123,7 +122,7 @@ class _DashboardContent extends StatelessWidget {
                     SizedBox(
                       width: width,
                       child: FinanceSummaryCard(
-                        label: 'Total pemasukan bulan ini',
+                        label: 'Total pemasukan',
                         amount: summary.income,
                         tone: SummaryTone.income,
                         icon: Icons.trending_up,
@@ -132,7 +131,7 @@ class _DashboardContent extends StatelessWidget {
                     SizedBox(
                       width: width,
                       child: FinanceSummaryCard(
-                        label: 'Total pengeluaran bulan ini',
+                        label: 'Total pengeluaran',
                         amount: summary.expense,
                         tone: SummaryTone.expense,
                         icon: Icons.trending_down,
@@ -141,7 +140,7 @@ class _DashboardContent extends StatelessWidget {
                     SizedBox(
                       width: width,
                       child: FinanceSummaryCard(
-                        label: 'Sisa saldo bulan ini',
+                        label: 'Selisih bersih kumulatif',
                         amount: summary.balance,
                         tone: SummaryTone.info,
                         icon: Icons.account_balance_wallet_outlined,
@@ -156,20 +155,15 @@ class _DashboardContent extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Arus kas bulan ini',
+                    'Arus kas 12 bulan terakhir',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 Text(
-                  CurrencyFormatter.formatSigned(
-                    summary.balance.abs(),
-                    income: summary.balance >= 0,
-                  ),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: summary.balance >= 0
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w700,
+                  'Per bulan',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -255,7 +249,7 @@ class _DashboardContent extends StatelessWidget {
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text('Belum ada transaksi pada periode ini.'),
+                  child: Text('Belum ada transaksi.'),
                 ),
               )
             else

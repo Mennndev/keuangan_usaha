@@ -36,6 +36,11 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
       label: 'Laporan',
     ),
     NavigationDestination(
+      icon: Icon(Icons.inventory_2_outlined),
+      selectedIcon: Icon(Icons.inventory_2),
+      label: 'Produk',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.settings_outlined),
       selectedIcon: Icon(Icons.settings_rounded),
       label: 'Pengaturan',
@@ -46,12 +51,20 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
     if (location.startsWith('/transactions')) return 1;
     if (location.startsWith('/credits')) return 2;
     if (location.startsWith('/reports')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/products')) return 4;
+    if (location.startsWith('/settings')) return 5;
     return 0;
   }
 
   void _navigate(BuildContext context, int index) {
-    const routes = ['/', '/transactions', '/credits', '/reports', '/settings'];
+    const routes = [
+      '/',
+      '/transactions',
+      '/credits',
+      '/reports',
+      '/products',
+      '/settings',
+    ];
     if (index != _selectedIndex) context.go(routes[index]);
   }
 
@@ -67,9 +80,10 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) => _navigate(context, index),
               destinations: _destinations,
-              // Menambahkan behavior ini agar teks label hanya muncul 
+              // Menambahkan behavior ini agar teks label hanya muncul
               // di menu yang sedang aktif. Ini akan mencegah overflow (teks kepanjangan/melebar).
-              labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.onlyShowSelected,
             ),
           );
         }
@@ -85,22 +99,26 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
                   onDestinationSelected: (index) => _navigate(context, index),
                   backgroundColor: context.appColors.card,
                   leading: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
                     child: extended
-                        ? const Row(
+                        ? Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.account_balance_wallet_rounded),
-                              SizedBox(width: 12),
-                              Text(
-                                'Keuangan Usaha',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                              _BrandMark(),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Keuangan Usaha',
+                                  maxLines: 2,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
                               ),
                             ],
                           )
                         : const Tooltip(
                             message: 'Keuangan Usaha',
-                            child: Icon(Icons.account_balance_wallet_rounded),
+                            child: _BrandMark(),
                           ),
                   ),
                   destinations: [
@@ -121,4 +139,23 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
       },
     );
   }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 42,
+    decoration: BoxDecoration(
+      color: context.appColors.info,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: const Icon(
+      Icons.account_balance_wallet_rounded,
+      color: Colors.white,
+      size: 22,
+    ),
+  );
 }

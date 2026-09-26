@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../customers/domain/customer.dart';
+import '../../../customers/presentation/providers/customer_providers.dart';
 
 import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../products/domain/product.dart';
+import '../../../../database/daos/product_dao.dart';
+import '../../../products/presentation/providers/product_providers.dart';
 import '../../domain/finance_transaction.dart';
 import '../../domain/transaction_validators.dart';
 import '../providers/transaction_providers.dart';
@@ -41,11 +46,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   late TransactionType _type;
   late DateTime _date;
   bool _isCredit = false;
+  final Map<String, int> _selectedProducts = {};
+  final Map<String, int> _originalProductQuantities = {};
+  final Map<String, int> _originalProductUnitPrices = {};
+  String? _productToAdd;
   late DateTime _creditDueDate;
   bool _dirty = false;
   bool _submitting = false;
+  bool _transactionNameEdited = false;
   bool _popAllowed = false;
   String? _loadedId;
+  String? _loadedSaleId;
 
   @override
   void initState() {
@@ -69,19 +80,42 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     super.dispose();
   }
 
-  void _populate(FinanceTransaction transaction) {
-    if (_loadedId == transaction.id) return;
+  void _populate(
+    FinanceTransaction transaction,
+    List<ProductSaleSnapshot> sales,
+  ) {
+    if (_loadedId == transaction.id && _loadedSaleId == transaction.id) return;
     _loadedId = transaction.id;
+    _loadedSaleId = transaction.id;
     _type = transaction.type;
     _date = transaction.transactionDate;
     _isCredit = transaction.isCredit;
+    _selectedProducts
+      ..clear()
+      ..addEntries(
+        sales.map((sale) => MapEntry(sale.productId, sale.quantity)),
+      );
+    _originalProductQuantities
+      ..clear()
+      ..addEntries(
+        sales.map((sale) => MapEntry(sale.productId, sale.quantity)),
+      );
+    _originalProductUnitPrices
+      ..clear()
+      ..addEntries(
+        sales.map((sale) => MapEntry(sale.productId, sale.unitPrice)),
+      );
+    _productToAdd = null;
+    _transactionNameEdited = true;
     _nameController.text = transaction.name;
     _amountController.text = CurrencyFormatter.digits(transaction.amount);
     _dateController.text = AppDateFormatter.long(transaction.transactionDate);
     _categoryController.text = transaction.category ?? '';
     _notesController.text = transaction.notes ?? '';
-    if (transaction.isCredit) {
+    if (transaction.type == TransactionType.income) {
       _creditCustomerController.text = transaction.creditCustomerName ?? '';
+    }
+    if (transaction.isCredit) {
       _creditDueDate = transaction.creditDueDate ?? DateTime.now();
       _creditDueDateController.text = AppDateFormatter.long(_creditDueDate);
     }
@@ -128,6 +162,97 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     });
   }
 
+  Future<void> _chooseCustomer() async {
+    final customers = await ref.read(customersProvider.future);
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Pilih pelanggan')),
+            if (customers.isEmpty)
+              const ListTile(title: Text('Belum ada pelanggan tersimpan.')),
+            for (final customer in customers)
+              ListTile(
+                title: Text(customer.name),
+                subtitle: customer.phone == null ? null : Text(customer.phone!),
+                onTap: () => Navigator.pop(context, customer.name),
+              ),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: const Text('Tambah pelanggan baru'),
+              onTap: () => Navigator.pop(context, '__new__'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    if (selected == '__new__') {
+      final name = TextEditingController();
+      final phone = TextEditingController();
+      final save = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Tambah pelanggan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Nama pelanggan'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Nomor telepon (opsional',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      );
+      if (save == true && name.text.trim().isNotEmpty) {
+        try {
+          await ref
+              .read(customerRepositoryProvider)
+              .save(name: name.text, phone: phone.text);
+          ref.invalidate(customersProvider);
+          _creditCustomerController.text = name.text.trim();
+          _markDirty();
+        } catch (error) {
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Pelanggan belum tersimpan: $error')),
+            );
+        }
+      }
+      name.dispose();
+      phone.dispose();
+    } else {
+      setState(() {
+        _creditCustomerController.text = selected;
+        _dirty = true;
+      });
+    }
+  }
+
   Future<bool> _confirmDiscard() async {
     if (!_dirty || _submitting) return true;
     return await showDialog<bool>(
@@ -170,8 +295,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       category: _categoryController.text,
       notes: _notesController.text,
       isCredit: _isCredit,
-      creditCustomerName: _isCredit ? _creditCustomerController.text : null,
+      creditCustomerName:
+          _type != TransactionType.income ||
+              _creditCustomerController.text.trim().isEmpty
+          ? null
+          : _creditCustomerController.text.trim(),
       creditDueDate: _isCredit ? _creditDueDate : null,
+      products: _type == TransactionType.income
+          ? _selectedProducts.entries
+                .map(
+                  (entry) => TransactionProductInput(
+                    productId: entry.key,
+                    quantity: entry.value,
+                  ),
+                )
+                .toList(growable: false)
+          : const [],
     );
     try {
       final controller = ref.read(transactionControllerProvider.notifier);
@@ -198,15 +337,229 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       );
       context.go('/transactions/$id');
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Gagal menyimpan transaksi: $error');
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Transaksi belum berhasil disimpan. Coba lagi.'),
+        SnackBar(
+          content: Text(
+            error is StateError || error is ArgumentError
+                ? error.toString().replaceFirst('Bad state: ', '')
+                : 'Transaksi gagal disimpan: $error',
+          ),
         ),
       );
     }
+  }
+
+  Widget _buildProductPicker(List<Product> products) {
+    if (products.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => context.go('/products'),
+          icon: const Icon(Icons.inventory_2_outlined),
+          label: const Text('Kelola produk dan stok'),
+        ),
+      );
+    }
+
+    final available = products
+        .where(
+          (product) =>
+              product.stockQuantity > 0 &&
+              !_selectedProducts.containsKey(product.id),
+        )
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (available.isNotEmpty)
+          DropdownButtonFormField<String?>(
+            key: ValueKey(
+              '${_productToAdd ?? 'empty'}-${_selectedProducts.length}',
+            ),
+            value: _productToAdd,
+            decoration: const InputDecoration(
+              labelText: 'Tambah produk',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Pilih produk'),
+              ),
+              ...available.map(
+                (product) => DropdownMenuItem<String?>(
+                  value: product.id,
+                  child: Text(
+                    '${product.brand.label} · ${product.name} · stok ${product.stockQuantity}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+            onChanged: _submitting
+                ? null
+                : (id) {
+                    if (id == null) return;
+                    final product = _findProduct(products, id);
+                    if (product == null) return;
+                    setState(() {
+                      _selectedProducts[id] = 1;
+                      _productToAdd = null;
+                      if (!_transactionNameEdited) {
+                        _nameController.text = _selectedProducts.length == 1
+                            ? 'Penjualan ${product.name}'
+                            : 'Penjualan ${_selectedProducts.length} produk';
+                      }
+                      final brands = _selectedProducts.keys
+                          .map((productId) => _findProduct(products, productId))
+                          .whereType<Product>()
+                          .map((selected) => selected.brand.label)
+                          .toSet();
+                      _categoryController.text = brands.length == 1
+                          ? brands.first
+                          : 'Penjualan produk';
+                      _updateSaleAmount(products);
+                      _dirty = true;
+                    });
+                  },
+          )
+        else
+          Text(
+            _selectedProducts.isEmpty
+                ? 'Tidak ada produk dengan stok tersedia.'
+                : 'Semua produk yang tersedia sudah ditambahkan.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        if (_selectedProducts.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          for (final entry in _selectedProducts.entries.toList())
+            _buildSelectedProductLine(products, entry.key, entry.value),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSelectedProductLine(
+    List<Product> products,
+    String productId,
+    int quantity,
+  ) {
+    final product = _findProduct(products, productId);
+    if (product == null) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Produk pada transaksi lama tidak tersedia.'),
+        trailing: IconButton(
+          tooltip: 'Hapus produk',
+          onPressed: _submitting
+              ? null
+              : () => setState(() {
+                  _selectedProducts.remove(productId);
+                  _dirty = true;
+                  _updateSaleAmount(products);
+                }),
+          icon: const Icon(Icons.close),
+        ),
+      );
+    }
+
+    final availableStock =
+        product.stockQuantity + (_originalProductQuantities[productId] ?? 0);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Text(
+                      '${product.brand.label} · ${CurrencyFormatter.format(product.sellingPrice)} per item',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Hapus produk',
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() {
+                        _selectedProducts.remove(productId);
+                        _dirty = true;
+                        _updateSaleAmount(products);
+                      }),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          TextFormField(
+            key: ValueKey('$_loadedId-$productId'),
+            initialValue: '$quantity',
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Jumlah terjual',
+              helperText: 'Tersedia: $availableStock',
+              border: const OutlineInputBorder(),
+            ),
+            validator: (value) {
+              final selectedQuantity = int.tryParse(value ?? '');
+              if (selectedQuantity == null || selectedQuantity <= 0) {
+                return 'Jumlah harus lebih dari 0';
+              }
+              if (selectedQuantity > availableStock) {
+                return 'Stok produk tidak mencukupi';
+              }
+              return null;
+            },
+            onChanged: (value) {
+              final selectedQuantity = int.tryParse(value);
+              if (selectedQuantity == null || selectedQuantity <= 0) return;
+              setState(() {
+                _selectedProducts[productId] = selectedQuantity;
+                _updateSaleAmount(products);
+                _dirty = true;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateSaleAmount(List<Product> products) {
+    if (_selectedProducts.isEmpty) {
+      _amountController.clear();
+      return;
+    }
+    var total = 0;
+    for (final entry in _selectedProducts.entries) {
+      final product = _findProduct(products, entry.key);
+      if (product != null) {
+        final originalQuantity = _originalProductQuantities[entry.key];
+        final originalPrice = _originalProductUnitPrices[entry.key];
+        final unitPrice =
+            originalQuantity == entry.value && originalPrice != null
+            ? originalPrice
+            : product.sellingPrice;
+        total += unitPrice * entry.value;
+      }
+    }
+    _amountController.text = CurrencyFormatter.digits(total);
   }
 
   @override
@@ -237,8 +590,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               message: 'Transaksi ini tidak ditemukan atau sudah dihapus.',
             );
           }
-          _populate(value);
-          return _buildForm(context);
+          final sales = ref.watch(productSaleProvider(value.id));
+          return sales.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => ErrorState(
+              message: 'Informasi produk transaksi belum dapat dimuat.',
+            ),
+            data: (saleValues) {
+              _populate(value, saleValues);
+              return _buildForm(context);
+            },
+          );
         },
       );
     }
@@ -246,6 +608,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Widget _buildForm(BuildContext context) {
+    final productsAsync = ref.watch(productsProvider);
     return PopScope(
       canPop: _popAllowed || !_dirty,
       onPopInvokedWithResult: (didPop, result) async {
@@ -319,9 +682,24 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                   ? null
                                   : (selection) => setState(() {
                                       _type = selection.single;
+                                      if (_type == TransactionType.expense) {
+                                        _selectedProducts.clear();
+                                        _isCredit = false;
+                                      }
                                       _dirty = true;
                                     }),
                             ),
+                            if (_type == TransactionType.income) ...[
+                              const SizedBox(height: 16),
+                              productsAsync.when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (error, stack) => const Text(
+                                  'Daftar produk tidak dapat dimuat.',
+                                ),
+                                data: (products) =>
+                                    _buildProductPicker(products),
+                              ),
+                            ],
                             const SizedBox(height: 20),
                             AppTextField(
                               controller: _nameController,
@@ -329,7 +707,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               hint: 'Contoh: Penjualan toko',
                               validator: TransactionValidators.name,
                               textInputAction: TextInputAction.next,
-                              onChanged: _markDirty,
+                              onChanged: (value) {
+                                _transactionNameEdited = true;
+                                _markDirty(value);
+                              },
                               autofocus: !widget.isEditing,
                             ),
                             const SizedBox(height: 16),
@@ -341,6 +722,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [RupiahInputFormatter()],
                               validator: TransactionValidators.amount,
+                              readOnly: _selectedProducts.isNotEmpty,
                               textInputAction: TextInputAction.next,
                               onChanged: _markDirty,
                             ),
@@ -383,35 +765,61 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                 onChanged: _submitting
                                     ? null
                                     : (value) => setState(() {
-                                          _isCredit = value;
-                                          _dirty = true;
-                                        }),
+                                        _isCredit = value;
+                                        _dirty = true;
+                                      }),
                                 contentPadding: EdgeInsets.zero,
                               ),
                             ],
-                            if (_isCredit) ...[
+                            if (_type == TransactionType.income) ...[
                               const SizedBox(height: 16),
                               AppTextField(
                                 controller: _creditCustomerController,
-                                label: 'Nama Pelanggan',
-                                hint: 'Contoh: Toko Sejaya',
+                                label: _isCredit
+                                    ? 'Nama Pelanggan'
+                                    : 'Nama Pelanggan (opsional)',
+                                hint: 'Pilih pelanggan atau ketik nama',
                                 validator: (value) {
                                   if (_isCredit &&
                                       (value == null || value.trim().isEmpty)) {
-                                    return 'Nama pelanggan harus diisi untuk penjualan kredit';
+                                    return 'Pelanggan wajib diisi untuk penjualan kredit';
                                   }
                                   return null;
                                 },
                                 textInputAction: TextInputAction.next,
                                 onChanged: _markDirty,
                               ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: _submitting
+                                        ? null
+                                        : _chooseCustomer,
+                                    icon: const Icon(
+                                      Icons.person_search_outlined,
+                                    ),
+                                    label: const Text(
+                                      'Pilih / tambah pelanggan',
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => context.push('/customers'),
+                                    icon: const Icon(Icons.people_outline),
+                                    label: const Text('Kelola pelanggan'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (_isCredit) ...[
                               const SizedBox(height: 16),
                               AppTextField(
                                 controller: _creditDueDateController,
                                 label: 'Tanggal Jatuh Tempo',
                                 readOnly: true,
-                                onTap:
-                                    _submitting ? null : _pickCreditDueDate,
+                                onTap: _submitting ? null : _pickCreditDueDate,
                                 suffixIcon: const Icon(
                                   Icons.calendar_today_outlined,
                                 ),
@@ -472,4 +880,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ),
     );
   }
+}
+
+Product? _findProduct(List<Product> products, String id) {
+  for (final product in products) {
+    if (product.id == id) return product;
+  }
+  return null;
 }

@@ -6,6 +6,7 @@ import '../../../../database/database_provider.dart';
 import '../../../transactions/presentation/providers/transaction_providers.dart';
 import '../../data/settings_repository.dart';
 import '../../data/transaction_export_service.dart';
+import '../../data/backup_restore_service.dart';
 import '../../domain/business_settings.dart';
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
@@ -19,8 +20,15 @@ final businessProfileProvider = StreamProvider<BusinessProfile?>((ref) {
 final transactionExportServiceProvider = Provider<TransactionExportService>((
   ref,
 ) {
-  return TransactionExportService(ref.watch(transactionRepositoryProvider));
+  return TransactionExportService(
+    ref.watch(transactionRepositoryProvider),
+    ref.watch(databaseProvider),
+  );
 });
+
+final backupRestoreServiceProvider = Provider<BackupRestoreService>(
+  (ref) => BackupRestoreService(ref.watch(databaseProvider)),
+);
 
 final settingsControllerProvider =
     AsyncNotifierProvider<SettingsController, void>(SettingsController.new);

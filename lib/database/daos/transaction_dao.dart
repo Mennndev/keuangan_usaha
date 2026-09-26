@@ -26,6 +26,18 @@ class CashFlowRecord {
   final int expense;
 }
 
+class CategoryTotalsRecord {
+  const CategoryTotalsRecord({
+    required this.category,
+    required this.amount,
+    required this.transactionCount,
+  });
+
+  final String category;
+  final int amount;
+  final int transactionCount;
+}
+
 @DriftAccessor(tables: [Transactions])
 class TransactionDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionDaoMixin {
@@ -157,6 +169,23 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  Stream<FinanceTotalsRecord> watchAllTimeTotals() {
+    return customSelect(
+      '''
+      SELECT
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense
+      FROM transactions
+      ''',
+      readsFrom: {transactions},
+    ).watchSingle().map(
+      (row) => FinanceTotalsRecord(
+        income: row.read<int>('income'),
+        expense: row.read<int>('expense'),
+      ),
+    );
+  }
+
   Stream<List<CashFlowRecord>> watchCashFlow({
     required DateTime start,
     required DateTime end,
@@ -185,6 +214,41 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
               label: row.read<String>('label'),
               income: row.read<int>('income'),
               expense: row.read<int>('expense'),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  Stream<List<CategoryTotalsRecord>> watchCategoryTotals({
+    required DateTime start,
+    required DateTime end,
+    required String type,
+  }) {
+    return customSelect(
+      '''
+      SELECT CASE WHEN TRIM(COALESCE(category, '')) = ''
+          THEN 'Tanpa kategori' ELSE TRIM(category) END AS category,
+        COALESCE(SUM(amount), 0) AS amount, COUNT(*) AS transaction_count
+      FROM transactions
+      WHERE type = ? AND transaction_date >= ? AND transaction_date < ?
+      GROUP BY CASE WHEN TRIM(COALESCE(category, '')) = ''
+          THEN 'Tanpa kategori' ELSE TRIM(category) END
+      ORDER BY amount DESC, category COLLATE NOCASE ASC
+      ''',
+      variables: [
+        Variable.withString(type),
+        Variable.withDateTime(start),
+        Variable.withDateTime(end),
+      ],
+      readsFrom: {transactions},
+    ).watch().map(
+      (rows) => rows
+          .map(
+            (row) => CategoryTotalsRecord(
+              category: row.read<String>('category'),
+              amount: row.read<int>('amount'),
+              transactionCount: row.read<int>('transaction_count'),
             ),
           )
           .toList(growable: false),

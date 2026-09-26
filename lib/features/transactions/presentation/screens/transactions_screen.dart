@@ -141,10 +141,22 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             child: AppPageHeader(
               title: 'Transaksi',
               subtitle: 'Semua aktivitas keuangan usaha',
-              trailing: FilledButton.icon(
-                onPressed: () => context.go('/transactions/new'),
-                icon: const Icon(Icons.add),
-                label: const Text('Tambah'),
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => context.push('/customers'),
+                    icon: const Icon(Icons.people_outline),
+                    label: const Text('Pelanggan'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => context.go('/transactions/new'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tambah'),
+                  ),
+                ],
               ),
             ),
           ),

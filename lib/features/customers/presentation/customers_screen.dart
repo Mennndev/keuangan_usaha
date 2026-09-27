@@ -1,7 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/formatters/currency_formatter.dart';
 import '../../../core/formatters/date_formatter.dart';
@@ -9,9 +8,9 @@ import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/loading_state.dart';
+import '../../settings/presentation/providers/settings_providers.dart';
 import 'providers/customer_providers.dart';
 import '../domain/customer.dart';
-import '../data/customer_export_service.dart';
 
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
@@ -42,28 +41,36 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             .save(id: customer?.id, name: draft.name, phone: draft.phone);
         ref.invalidate(customersProvider);
       } catch (error) {
-        if (context.mounted)
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Pelanggan belum tersimpan: $error')),
           );
+        }
       }
     }
   }
 
-  Future<void> _exportCustomers(List<Customer> customers) async {
+  Future<void> _exportAllData() async {
     try {
       final box = context.findRenderObject();
       final origin = box is RenderBox && box.hasSize
           ? box.localToGlobal(Offset.zero) & box.size
           : null;
-      await CustomerExportService().exportAndShare(
-        customers,
-        sharePositionOrigin: origin,
+      final summary = await ref
+          .read(transactionExportServiceProvider)
+          .exportAndShare(sharePositionOrigin: origin);
+      if (!mounted || summary == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'File Excel siap: ${summary.transactions} transaksi, ${summary.customers} pelanggan, ${summary.products} produk.',
+          ),
+        ),
       );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ekspor pelanggan belum berhasil: $error')),
+          SnackBar(content: Text('Ekspor data belum berhasil: $error')),
         );
       }
     }
@@ -103,19 +110,163 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                           final row = rows[index];
                           final type = row.read<String>('type');
                           final date = row.read<DateTime>('transaction_date');
+                          final isCredit = row.read<bool>('is_credit');
+                          final amount = row.read<int>('amount');
+                          final paidAmount = row.read<int>(
+                            'credit_paid_amount',
+                          );
+                          final dueDate = row.readNullable<DateTime>(
+                            'credit_due_date',
+                          );
+                          final status = isCredit
+                              ? _customerCreditStatus(
+                                  row.read<String>('credit_status'),
+                                  amount: amount,
+                                  paidAmount: paidAmount,
+                                  dueDate: dueDate,
+                                )
+                              : 'Tunai';
                           return ListTile(
-                            title: Text(row.read<String>('name')),
-                            subtitle: Text(
-                              '${AppDateFormatter.long(date)}${row.read<bool>('is_credit') ? ' · Kredit' : ''}',
+                            title: Text(
+                              row.read<String>('name'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: Text(
-                              '${type == 'income' ? '+' : '-'}${CurrencyFormatter.format(row.read<int>('amount'))}',
+                            subtitle: Text(
+                              '${AppDateFormatter.long(date)} · $status',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 116,
+                                  ),
+                                  child: Text(
+                                    CurrencyFormatter.formatSigned(
+                                      amount,
+                                      income: type == 'income',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right_rounded),
+                              ],
+                            ),
+                            onTap: () => _showTransactionDetail(
+                              context,
+                              name: row.read<String>('name'),
+                              type: type,
+                              amount: amount,
+                              date: date,
+                              isCredit: isCredit,
+                              creditStatus: row.read<String>('credit_status'),
+                              paidAmount: paidAmount,
+                              dueDate: dueDate,
                             ),
                           );
                         },
                       ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTransactionDetail(
+    BuildContext context, {
+    required String name,
+    required String type,
+    required int amount,
+    required DateTime date,
+    required bool isCredit,
+    required String creditStatus,
+    required int paidAmount,
+    required DateTime? dueDate,
+  }) async {
+    final remainingAmount = (amount - paidAmount).clamp(0, amount).toInt();
+    final status = isCredit
+        ? _customerCreditStatus(
+            creditStatus,
+            amount: amount,
+            paidAmount: paidAmount,
+            dueDate: dueDate,
+          )
+        : 'Tunai';
+    final colorScheme = Theme.of(context).colorScheme;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .75,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Detail transaksi',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(name, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Chip(
+                  avatar: Icon(
+                    isCredit
+                        ? status == 'Lunas'
+                              ? Icons.check_circle_outline_rounded
+                              : status == 'Terlambat'
+                              ? Icons.warning_amber_rounded
+                              : Icons.schedule_rounded
+                        : Icons.payments_outlined,
+                    size: 18,
+                  ),
+                  label: Text(status),
+                  backgroundColor: isCredit && remainingAmount > 0
+                      ? colorScheme.tertiaryContainer
+                      : colorScheme.secondaryContainer,
+                ),
+                const Divider(height: 24),
+                _CustomerTransactionDetailRow(
+                  label: 'Jenis transaksi',
+                  value: type == 'income' ? 'Pemasukan' : 'Pengeluaran',
+                ),
+                _CustomerTransactionDetailRow(
+                  label: 'Tanggal',
+                  value: AppDateFormatter.long(date),
+                ),
+                _CustomerTransactionDetailRow(
+                  label: 'Total',
+                  value: CurrencyFormatter.format(amount),
+                ),
+                if (isCredit) ...[
+                  _CustomerTransactionDetailRow(
+                    label: 'Sudah dibayar',
+                    value: CurrencyFormatter.format(paidAmount),
+                  ),
+                  _CustomerTransactionDetailRow(
+                    label: 'Sisa pembayaran',
+                    value: CurrencyFormatter.format(remainingAmount),
+                  ),
+                  if (dueDate != null)
+                    _CustomerTransactionDetailRow(
+                      label: 'Jatuh tempo',
+                      value: AppDateFormatter.long(dueDate),
+                    ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -132,7 +283,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           sliver: SliverToBoxAdapter(
             child: AppPageHeader(
               title: 'Pelanggan',
-              subtitle: 'Daftar pelanggan dan riwayat transaksi mereka',
+              leading: context.canPop()
+                  ? IconButton(
+                      tooltip: 'Kembali ke transaksi',
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Icons.arrow_back),
+                    )
+                  : null,
             ),
           ),
         ),
@@ -177,11 +334,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         runSpacing: 8,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: items.isEmpty
-                                ? null
-                                : () => _exportCustomers(items),
+                            onPressed: _exportAllData,
                             icon: const Icon(Icons.ios_share_outlined),
-                            label: const Text('Ekspor pelanggan'),
+                            label: const Text('Ekspor semua data'),
                           ),
                           FilledButton.icon(
                             onPressed: () => _editCustomer(context, null),
@@ -283,6 +438,56 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       ],
     );
   }
+}
+
+String _customerCreditStatus(
+  String status, {
+  required int amount,
+  required int paidAmount,
+  required DateTime? dueDate,
+}) {
+  final remaining = amount - paidAmount;
+  if (remaining > 0 && dueDate != null) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    if (due.isBefore(today)) return 'Terlambat';
+  }
+  return switch (status) {
+    'paid' => 'Lunas',
+    'partial' => 'Dibayar sebagian',
+    _ => 'Belum lunas',
+  };
+}
+
+class _CustomerTransactionDetailRow extends StatelessWidget {
+  const _CustomerTransactionDetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(child: Text(value, textAlign: TextAlign.end)),
+      ],
+    ),
+  );
 }
 
 class CustomerDraft {

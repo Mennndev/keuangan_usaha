@@ -34,7 +34,7 @@ class CustomerRepository {
     final now = DateTime.now().toIso8601String();
     if (id == null) {
       await database.customStatement(
-        'INSERT INTO customers (id, name, phone, notes, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?)',
+        'INSERT OR IGNORE INTO customers (id, name, phone, notes, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?)',
         [_uuid.v4(), cleanName, _clean(phone), now, now],
       );
     } else {
@@ -65,6 +65,24 @@ class CustomerRepository {
     }
   }
 
+  Future<String> ensureExists(String name) async {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) throw ArgumentError('Nama pelanggan wajib diisi.');
+    await database.ensureCustomersTable();
+    final now = DateTime.now().toIso8601String();
+    await database.customStatement(
+      'INSERT OR IGNORE INTO customers (id, name, phone, notes, created_at, updated_at) VALUES (?, ?, NULL, NULL, ?, ?)',
+      [_uuid.v4(), cleanName, now, now],
+    );
+    final row = await database
+        .customSelect(
+          'SELECT name FROM customers WHERE name = ? COLLATE NOCASE',
+          variables: [Variable.withString(cleanName)],
+        )
+        .getSingleOrNull();
+    return row?.read<String>('name') ?? cleanName;
+  }
+
   Future<int> transactionCount(Customer customer) async {
     final row = await database
         .customSelect(
@@ -77,7 +95,7 @@ class CustomerRepository {
 
   Future<List<QueryRow>> getHistory(Customer customer) => database
       .customSelect(
-        'SELECT type, name, amount, transaction_date, is_credit, credit_status FROM transactions WHERE credit_customer_name = ? COLLATE NOCASE ORDER BY transaction_date DESC',
+        'SELECT id, type, name, amount, transaction_date, is_credit, credit_status, credit_paid_amount, credit_due_date FROM transactions WHERE credit_customer_name = ? COLLATE NOCASE ORDER BY transaction_date DESC',
         variables: [Variable.withString(customer.name)],
       )
       .get();

@@ -38,10 +38,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         const SliverPadding(
           padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
           sliver: SliverToBoxAdapter(
-            child: AppPageHeader(
-              title: 'Produk & stok',
-              subtitle: 'Kelola produk, stok, dan performa penjualannya',
-            ),
+            child: AppPageHeader(title: 'Produk & stok'),
           ),
         ),
         SliverPadding(
@@ -296,10 +293,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               final restocks = items.where(
                                 (m) => m.reason == 'restock',
                               );
-                              if (restocks.isEmpty)
+                              if (restocks.isEmpty) {
                                 return const ListTile(
                                   title: Text('Belum ada riwayat stok masuk.'),
                                 );
+                              }
                               return Column(
                                 children: restocks
                                     .map(
@@ -353,7 +351,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<ProductBrand>(
-                    value: brand,
+                    initialValue: brand,
                     decoration: const InputDecoration(labelText: 'Brand'),
                     items: ProductBrand.values
                         .map(
@@ -402,8 +400,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             ),
             FilledButton(
               onPressed: () {
-                if (formKey.currentState!.validate())
+                if (formKey.currentState!.validate()) {
                   Navigator.pop(dialogContext, true);
+                }
               },
               child: const Text('Simpan'),
             ),
@@ -529,8 +528,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate())
+              if (formKey.currentState!.validate()) {
                 Navigator.pop(dialogContext, true);
+              }
             },
             child: const Text('Simpan'),
           ),
@@ -552,12 +552,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ref.invalidate(stockMovementsProvider);
         ref.invalidate(productSalesProvider(_month));
       } catch (_) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Stok belum berhasil ditambahkan. Coba lagi.'),
             ),
           );
+        }
       }
     }
     quantity.dispose();

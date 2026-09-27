@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:csv/csv.dart';
 import 'package:drift/drift.dart';
+import 'package:excel/excel.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -20,6 +19,7 @@ class ExportSummary {
     required this.products,
     required this.stockMovements,
     required this.creditPayments,
+    required this.customers,
   });
 
   final int transactions;
@@ -27,9 +27,15 @@ class ExportSummary {
   final int products;
   final int stockMovements;
   final int creditPayments;
+  final int customers;
 
   int get totalRows =>
-      transactions + saleItems + products + stockMovements + creditPayments;
+      transactions +
+      saleItems +
+      products +
+      stockMovements +
+      creditPayments +
+      customers;
 }
 
 class ExportFailure implements Exception {
@@ -57,6 +63,7 @@ class TransactionExportService {
       final transactionsById = {
         for (final transaction in transactions) transaction.id: transaction,
       };
+
       stage = 'menyiapkan data penjualan';
       await _database.ensureProductSaleItems();
       stage = 'membaca data produk';
@@ -72,14 +79,21 @@ class TransactionExportService {
       ).get();
       stage = 'membaca riwayat stok';
       final movementRows = await _database.customSelect(
-        '''SELECT id, product_id, product_name_snapshot, brand_snapshot,
-             quantity_change, reason, movement_date, notes, transaction_id
+        '''SELECT product_name_snapshot, brand_snapshot, quantity_change,
+             reason, movement_date, notes, transaction_id
              FROM inventory_stock_movements ORDER BY movement_date, created_at''',
       ).get();
       stage = 'membaca pembayaran kredit';
       final payments = await (_database.select(
         _database.creditPayments,
       )..orderBy([(payment) => OrderingTerm.asc(payment.paymentDate)])).get();
+      stage = 'membaca data pelanggan';
+      await _database.ensureCustomersTable();
+      final customers = await _database
+          .customSelect(
+            'SELECT name, phone, notes FROM customers ORDER BY name COLLATE NOCASE',
+          )
+          .get();
 
       final summary = ExportSummary(
         transactions: transactions.length,
@@ -87,6 +101,7 @@ class TransactionExportService {
         products: products.length,
         stockMovements: movementRows.length,
         creditPayments: payments.length,
+        customers: customers.length,
       );
       if (summary.totalRows == 0) return null;
 
@@ -94,187 +109,186 @@ class TransactionExportService {
         for (final transaction in transactions)
           if (transaction.isCredit) transaction.id: transaction,
       };
+      stage = 'menyusun sheet Excel';
+      final workbook = Excel.createExcel();
+      workbook.rename('Sheet1', 'Transaksi');
+      workbook.setDefaultSheet('Transaksi');
+
+      _writeSheet(
+        workbook,
+        'Transaksi',
+        [
+          'Jenis',
+          'Nama transaksi',
+          'Nominal (IDR)',
+          'Kategori',
+          'Keterangan',
+          'Tanggal transaksi',
+          'Penjualan kredit',
+          'Nama pelanggan',
+          'Jatuh tempo',
+          'Sudah dibayar (IDR)',
+          'Sisa kredit (IDR)',
+          'Status kredit',
+          'Dibuat',
+          'Diperbarui',
+        ],
+        [
+          for (final transaction in transactions)
+            [
+              transaction.type.label,
+              _safeText(transaction.name),
+              transaction.amount,
+              _safeText(transaction.category ?? ''),
+              _safeText(transaction.notes ?? ''),
+              _date(transaction.transactionDate),
+              transaction.isCredit ? 'Ya' : 'Tidak',
+              _safeText(transaction.creditCustomerName ?? ''),
+              transaction.creditDueDate == null
+                  ? ''
+                  : _date(transaction.creditDueDate!),
+              transaction.isCredit ? transaction.creditPaidAmount : '',
+              transaction.isCredit ? transaction.creditRemainingAmount : '',
+              transaction.isCredit ? transaction.creditStatus.label : '',
+              _dateTime(transaction.createdAt),
+              _dateTime(transaction.updatedAt),
+            ],
+        ],
+      );
+
+      _writeSheet(
+        workbook,
+        'Detail Penjualan',
+        [
+          'Nama transaksi',
+          'Tanggal transaksi',
+          'Nama produk',
+          'Brand',
+          'Jumlah',
+          'Harga satuan (IDR)',
+          'Total baris (IDR)',
+        ],
+        [for (final row in saleRows) _saleExportRow(row, transactionsById)],
+      );
+
+      _writeSheet(
+        workbook,
+        'Produk dan Stok',
+        [
+          'Brand',
+          'Nama produk',
+          'Harga jual (IDR)',
+          'Stok saat ini',
+          'Dibuat',
+          'Diperbarui',
+        ],
+        [
+          for (final product in products)
+            [
+              _safeText(product.brand),
+              _safeText(product.name),
+              product.sellingPrice,
+              product.stockQuantity,
+              _dateTime(product.createdAt),
+              _dateTime(product.updatedAt),
+            ],
+        ],
+      );
+
+      _writeSheet(
+        workbook,
+        'Riwayat Stok',
+        [
+          'Nama produk',
+          'Brand',
+          'Perubahan stok',
+          'Jenis perubahan',
+          'Tanggal',
+          'Keterangan',
+          'Nama transaksi terkait',
+        ],
+        [
+          for (final row in movementRows)
+            [
+              _safeText(row.read<String>('product_name_snapshot')),
+              _safeText(row.read<String>('brand_snapshot')),
+              row.read<int>('quantity_change'),
+              _movementLabel(row.read<String>('reason')),
+              _storedDate(row.read<String>('movement_date')),
+              _safeText(row.readNullable<String>('notes') ?? ''),
+              _safeText(
+                transactionsById[row.readNullable<String>('transaction_id') ??
+                            '']
+                        ?.name ??
+                    '',
+              ),
+            ],
+        ],
+      );
+
+      _writeSheet(
+        workbook,
+        'Pembayaran Kredit',
+        [
+          'Nama pelanggan',
+          'Nama transaksi',
+          'Nominal pembayaran (IDR)',
+          'Tanggal pembayaran',
+          'Keterangan',
+        ],
+        [
+          for (final payment in payments)
+            [
+              _safeText(
+                creditById[payment.transactionId]?.creditCustomerName ?? '',
+              ),
+              _safeText(creditById[payment.transactionId]?.name ?? ''),
+              payment.paymentAmount,
+              _date(payment.paymentDate),
+              _safeText(payment.notes ?? ''),
+            ],
+        ],
+      );
+
+      _writeSheet(
+        workbook,
+        'Pelanggan',
+        ['Nama pelanggan', 'Nomor telepon', 'Catatan'],
+        [
+          for (final customer in customers)
+            [
+              _safeText(customer.read<String>('name')),
+              _safeText(customer.readNullable<String>('phone') ?? ''),
+              _safeText(customer.readNullable<String>('notes') ?? ''),
+            ],
+        ],
+      );
+
+      stage = 'menyimpan file Excel';
+      final bytes = workbook.save();
+      if (bytes == null || bytes.isEmpty) {
+        throw StateError('Workbook Excel tidak dapat dibuat.');
+      }
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final temporary = await getTemporaryDirectory();
-      final files = <XFile>[];
+      final file = File(
+        path.join(temporary.path, 'data-keuangan-usaha-$timestamp.xlsx'),
+      );
+      await file.writeAsBytes(bytes, flush: true);
 
-      if (transactions.isNotEmpty) {
-        stage = 'membuat file transaksi CSV';
-        files.add(
-          await _writeCsv(
-            temporary,
-            'transaksi-keuangan-$timestamp.csv',
-            [
-              'ID transaksi',
-              'Jenis',
-              'Nama transaksi',
-              'Nominal (IDR)',
-              'Kategori',
-              'Keterangan',
-              'Tanggal transaksi',
-              'Penjualan kredit',
-              'Nama pelanggan',
-              'Jatuh tempo',
-              'Sudah dibayar (IDR)',
-              'Sisa kredit (IDR)',
-              'Status kredit',
-              'Dibuat',
-              'Diperbarui',
-            ],
-            [
-              for (final transaction in transactions)
-                [
-                  transaction.id,
-                  transaction.type.label,
-                  _safeText(transaction.name),
-                  transaction.amount,
-                  _safeText(transaction.category ?? ''),
-                  _safeText(transaction.notes ?? ''),
-                  _date(transaction.transactionDate),
-                  transaction.isCredit ? 'Ya' : 'Tidak',
-                  _safeText(transaction.creditCustomerName ?? ''),
-                  transaction.creditDueDate == null
-                      ? ''
-                      : _date(transaction.creditDueDate!),
-                  transaction.isCredit ? transaction.creditPaidAmount : '',
-                  transaction.isCredit ? transaction.creditRemainingAmount : '',
-                  transaction.isCredit ? transaction.creditStatus.label : '',
-                  transaction.createdAt.toIso8601String(),
-                  transaction.updatedAt.toIso8601String(),
-                ],
-            ],
-          ),
-        );
-      }
-
-      if (saleRows.isNotEmpty) {
-        stage = 'membuat file detail penjualan CSV';
-        files.add(
-          await _writeCsv(
-            temporary,
-            'detail-penjualan-$timestamp.csv',
-            [
-              'ID transaksi',
-              'Nama transaksi',
-              'Tanggal transaksi',
-              'ID produk',
-              'Nama produk',
-              'Brand',
-              'Jumlah',
-              'Harga satuan (IDR)',
-              'Total baris (IDR)',
-            ],
-            [for (final row in saleRows) _saleExportRow(row, transactionsById)],
-          ),
-        );
-      }
-
-      if (products.isNotEmpty) {
-        stage = 'membuat file produk dan stok CSV';
-        files.add(
-          await _writeCsv(
-            temporary,
-            'produk-dan-stok-$timestamp.csv',
-            [
-              'ID produk',
-              'Brand',
-              'Nama produk',
-              'Harga jual (IDR)',
-              'Stok saat ini',
-              'Dibuat',
-              'Diperbarui',
-            ],
-            [
-              for (final product in products)
-                [
-                  product.id,
-                  _safeText(product.brand),
-                  _safeText(product.name),
-                  product.sellingPrice,
-                  product.stockQuantity,
-                  product.createdAt.toIso8601String(),
-                  product.updatedAt.toIso8601String(),
-                ],
-            ],
-          ),
-        );
-      }
-
-      if (movementRows.isNotEmpty) {
-        stage = 'membuat file riwayat stok CSV';
-        files.add(
-          await _writeCsv(
-            temporary,
-            'riwayat-stok-$timestamp.csv',
-            [
-              'ID riwayat',
-              'ID produk',
-              'Nama produk',
-              'Brand',
-              'Perubahan stok',
-              'Jenis perubahan',
-              'Tanggal',
-              'Keterangan',
-              'ID transaksi terkait',
-            ],
-            [
-              for (final row in movementRows)
-                [
-                  row.read<String>('id'),
-                  row.readNullable<String>('product_id') ?? '',
-                  _safeText(row.read<String>('product_name_snapshot')),
-                  _safeText(row.read<String>('brand_snapshot')),
-                  row.read<int>('quantity_change'),
-                  _movementLabel(row.read<String>('reason')),
-                  row.read<String>('movement_date'),
-                  _safeText(row.readNullable<String>('notes') ?? ''),
-                  row.readNullable<String>('transaction_id') ?? '',
-                ],
-            ],
-          ),
-        );
-      }
-
-      if (payments.isNotEmpty) {
-        stage = 'membuat file pembayaran kredit CSV';
-        files.add(
-          await _writeCsv(
-            temporary,
-            'pembayaran-kredit-$timestamp.csv',
-            [
-              'ID pembayaran',
-              'ID transaksi kredit',
-              'Nama pelanggan',
-              'Nama transaksi',
-              'Nominal pembayaran (IDR)',
-              'Tanggal pembayaran',
-              'Keterangan',
-            ],
-            [
-              for (final payment in payments)
-                [
-                  payment.id,
-                  payment.transactionId,
-                  _safeText(
-                    creditById[payment.transactionId]?.creditCustomerName ?? '',
-                  ),
-                  _safeText(creditById[payment.transactionId]?.name ?? ''),
-                  payment.paymentAmount,
-                  _date(payment.paymentDate),
-                  _safeText(payment.notes ?? ''),
-                ],
-            ],
-          ),
-        );
-      }
-
-      stage = 'membagikan file ke aplikasi lain';
+      stage = 'membagikan file Excel';
       await SharePlus.instance.share(
         ShareParams(
           title: 'Ekspor data Keuangan Usaha',
           text:
-              'File CSV berisi transaksi, detail penjualan, produk dan stok, riwayat stok, serta pembayaran kredit yang tersedia.',
-          files: files,
+              'Satu file Excel berisi transaksi, detail penjualan, produk dan stok, riwayat stok, pembayaran kredit, serta pelanggan pada sheet terpisah.',
+          files: [
+            XFile(
+              file.path,
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ),
+          ],
           sharePositionOrigin: sharePositionOrigin,
         ),
       );
@@ -285,40 +299,52 @@ class TransactionExportService {
     }
   }
 
-  Future<XFile> _writeCsv(
-    Directory directory,
-    String filename,
+  void _writeSheet(
+    Excel workbook,
+    String sheetName,
     List<String> headers,
-    List<List<Object?>> data,
-  ) async {
-    // The Excel codec already includes a UTF-8 BOM and Indonesian-friendly
-    // delimiter, so don't prepend a second BOM here.
-    final contents = excel.encode([headers, ...data]);
-    final file = File(path.join(directory.path, filename));
-    await file.writeAsBytes(utf8.encode(contents), flush: true);
-    return XFile(file.path, mimeType: 'text/csv');
+    List<List<Object?>> rows,
+  ) {
+    final sheet = workbook[sheetName];
+    sheet.appendRow([for (final header in headers) TextCellValue(header)]);
+    for (final row in rows) {
+      sheet.appendRow([for (final value in row) _cellValue(value)]);
+    }
   }
+
+  CellValue _cellValue(Object? value) => switch (value) {
+    final int number => IntCellValue(number),
+    final double number => DoubleCellValue(number),
+    final bool boolean => BoolCellValue(boolean),
+    _ => TextCellValue(value?.toString() ?? ''),
+  };
 
   List<Object?> _saleExportRow(
     QueryRow row,
     Map<String, FinanceTransaction> transactionsById,
   ) {
-    final transactionId = row.read<String>('transaction_id');
-    final transaction = transactionsById[transactionId];
+    final transaction = transactionsById[row.read<String>('transaction_id')];
+    final quantity = row.read<int>('quantity');
+    final unitPrice = row.read<int>('unit_price');
     return [
-      transactionId,
       _safeText(transaction?.name ?? ''),
       transaction == null ? '' : _date(transaction.transactionDate),
-      row.read<String>('product_id'),
       _safeText(row.read<String>('product_name_snapshot')),
       _safeText(row.read<String>('brand_snapshot')),
-      row.read<int>('quantity'),
-      row.read<int>('unit_price'),
-      row.read<int>('quantity') * row.read<int>('unit_price'),
+      quantity,
+      unitPrice,
+      quantity * unitPrice,
     ];
   }
 
   String _date(DateTime value) => AppDateFormatter.long(value);
+
+  String _dateTime(DateTime value) => AppDateFormatter.dateTime(value);
+
+  String _storedDate(String value) {
+    final parsed = DateTime.tryParse(value);
+    return parsed == null ? value : _date(parsed);
+  }
 
   String _safeText(String value) {
     final trimmed = value.trimLeft();

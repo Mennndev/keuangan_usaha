@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/widgets/app_page_header.dart';
-import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/loading_state.dart';
 import '../data/transaction_export_service.dart';
@@ -23,26 +22,15 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _businessController = TextEditingController();
-  final _ownerController = TextEditingController();
   AppThemePreference _theme = AppThemePreference.system;
   bool _initialized = false;
   bool _saving = false;
   bool _exporting = false;
   bool _backupBusy = false;
 
-  @override
-  void dispose() {
-    _businessController.dispose();
-    _ownerController.dispose();
-    super.dispose();
-  }
-
   void _initialize(BusinessProfile? profile) {
     if (_initialized) return;
     _initialized = true;
-    _businessController.text = profile?.businessName ?? AppConstants.appName;
-    _ownerController.text = profile?.ownerName ?? '';
     _theme = profile?.theme ?? AppThemePreference.system;
   }
 
@@ -50,12 +38,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
+      final profile = ref.read(businessProfileProvider).value;
       await ref
           .read(settingsControllerProvider.notifier)
           .save(
             BusinessProfile(
-              businessName: _businessController.text,
-              ownerName: _ownerController.text,
+              businessName: profile?.businessName ?? AppConstants.appName,
+              ownerName: profile?.ownerName ?? '',
               theme: _theme,
             ),
           );
@@ -89,13 +78,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'CSV siap: ${summary.transactions} transaksi, ${summary.products} produk, ${summary.stockMovements} riwayat stok, ${summary.creditPayments} pembayaran kredit.',
+              'File Excel siap: ${summary.transactions} transaksi, ${summary.saleItems} detail penjualan, ${summary.products} produk, ${summary.stockMovements} riwayat stok, ${summary.creditPayments} pembayaran kredit, ${summary.customers} pelanggan.',
             ),
           ),
         );
       }
     } catch (error, stackTrace) {
-      debugPrint('Gagal mengekspor data CSV: $error\n$stackTrace');
+      debugPrint('Gagal mengekspor data Excel: $error\n$stackTrace');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -123,7 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final saved = await ref
           .read(backupRestoreServiceProvider)
           .saveBackupToDevice();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -133,11 +122,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         );
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Cadangan belum berhasil dibuat: $error')),
         );
+      }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
     }
@@ -236,7 +227,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(financeTotalsProvider);
       ref.invalidate(allTimeFinanceTotalsProvider);
       ref.invalidate(businessProfileProvider);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -244,11 +235,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         );
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Pemulihan belum berhasil: $error')),
         );
+      }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
     }
@@ -346,10 +339,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SliverPadding(
               padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
               sliver: SliverToBoxAdapter(
-                child: AppPageHeader(
-                  title: 'Pengaturan',
-                  subtitle: 'Kelola profil, tampilan, dan data aplikasi',
-                ),
+                child: AppPageHeader(title: 'Pengaturan'),
               ),
             ),
             SliverPadding(
@@ -373,37 +363,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  'Profil usaha',
+                                  'Tampilan',
                                   style: Theme.of(
                                     context,
                                   ).textTheme.titleMedium,
                                 ),
-                                const SizedBox(height: 16),
-                                AppTextField(
-                                  controller: _businessController,
-                                  label: 'Nama usaha',
-                                  hint: AppConstants.appName,
-                                  textInputAction: TextInputAction.next,
-                                ),
                                 const SizedBox(height: 14),
-                                AppTextField(
-                                  controller: _ownerController,
-                                  label: 'Nama pemilik (opsional)',
-                                  textInputAction: TextInputAction.done,
-                                ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  'Tema',
-                                  style: Theme.of(context).textTheme.labelLarge,
-                                ),
-                                const SizedBox(height: 8),
                                 LayoutBuilder(
                                   builder: (context, constraints) {
                                     if (constraints.maxWidth < 400) {
                                       return DropdownButtonFormField<
                                         AppThemePreference
                                       >(
-                                        value: _theme,
+                                        initialValue: _theme,
                                         decoration: const InputDecoration(
                                           labelText: 'Pilih tema',
                                         ),
@@ -481,9 +453,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 title: const Text(
                                   'Simpan cadangan ke folder HP',
                                 ),
-                                subtitle: const Text(
-                                  'Pilih folder tujuan untuk menyimpan file JSON lengkap.',
-                                ),
                                 trailing: _backupBusy
                                     ? const SizedBox.square(
                                         dimension: 22,
@@ -498,9 +467,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ListTile(
                                 leading: const Icon(Icons.share_outlined),
                                 title: const Text('Bagikan file cadangan'),
-                                subtitle: const Text(
-                                  'Kirim atau simpan cadangan melalui aplikasi lain.',
-                                ),
                                 trailing: _backupBusy
                                     ? const SizedBox.square(
                                         dimension: 22,
@@ -517,9 +483,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   Icons.settings_backup_restore_outlined,
                                 ),
                                 title: const Text('Pulihkan dari cadangan'),
-                                subtitle: const Text(
-                                  'Pilih file JSON. Data akan digabungkan, data yang ada tidak dihapus.',
-                                ),
                                 trailing: _backupBusy
                                     ? const SizedBox.square(
                                         dimension: 22,
@@ -541,10 +504,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ListTile(
                                 minTileHeight: 64,
                                 leading: const Icon(Icons.ios_share_outlined),
-                                title: const Text('Ekspor data ke CSV'),
-                                subtitle: const Text(
-                                  'Bagikan transaksi, penjualan, produk, stok, dan pembayaran kredit.',
-                                ),
+                                title: const Text('Ekspor semua data ke Excel'),
                                 trailing: _exporting
                                     ? const SizedBox.square(
                                         dimension: 22,
@@ -555,37 +515,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     : const Icon(Icons.chevron_right),
                                 onTap: _exporting ? null : _export,
                               ),
-                              const Divider(height: 1),
-                              ListTile(
-                                minTileHeight: 64,
-                                leading: const Icon(Icons.info_outline),
-                                title: const Text('Informasi aplikasi'),
-                                subtitle: const Text(
-                                  'Versi dan lisensi aplikasi.',
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => showAboutDialog(
-                                  context: context,
-                                  applicationName: AppConstants.appName,
-                                  applicationVersion: '1.0.0',
-                                  applicationIcon: const Icon(
-                                    Icons.account_balance_wallet_rounded,
-                                    size: 40,
-                                  ),
-                                  children: const [
-                                    Text(
-                                      'Aplikasi pencatatan pemasukan dan pengeluaran usaha yang bekerja secara offline.',
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
                         Card(
                           child: ListTile(
-                            minTileHeight: 72,
+                            minTileHeight: 64,
                             leading: Icon(
                               Icons.delete_forever_outlined,
                               color: Theme.of(context).colorScheme.error,
@@ -596,9 +532,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 color: Theme.of(context).colorScheme.error,
                                 fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            subtitle: const Text(
-                              'Menghapus semua transaksi, pelanggan, produk, stok, dan profil usaha secara permanen.',
                             ),
                             onTap: _deleteAllData,
                           ),

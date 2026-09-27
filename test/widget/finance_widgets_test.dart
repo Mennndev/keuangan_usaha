@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:keuangan_usaha/app/theme/app_theme.dart';
+import 'package:keuangan_usaha/app/router/app_router.dart';
 import 'package:keuangan_usaha/core/widgets/confirm_delete_dialog.dart';
 import 'package:keuangan_usaha/core/widgets/responsive_navigation_scaffold.dart';
 import 'package:keuangan_usaha/database/app_database.dart';
@@ -269,6 +270,48 @@ void main() {
 
     expect(find.textContaining('Penjualan produk'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await disposeTree(tester);
+  });
+
+  testWidgets('perpindahan tab mempertahankan pencarian transaksi', (
+    tester,
+  ) async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    addTearDown(appRouter.dispose);
+    await insertFixture(
+      database,
+      id: 'tab-cache',
+      type: 'income',
+      name: 'Transaksi untuk navigasi',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(database)],
+        child: MaterialApp.router(
+          theme: AppTheme.light(),
+          routerConfig: appRouter,
+        ),
+      ),
+    );
+    await pumpFrames(tester);
+
+    await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+    await pumpFrames(tester);
+    final search = find.byType(TextField).first;
+    await tester.enterText(search, 'filter tersimpan');
+    await pumpFrames(tester);
+
+    await tester.tap(find.byIcon(Icons.home_outlined));
+    await pumpFrames(tester);
+    await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+    await pumpFrames(tester);
+
+    expect(
+      tester.widget<TextField>(search).controller?.text,
+      'filter tersimpan',
+    );
     await disposeTree(tester);
   });
 }

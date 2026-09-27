@@ -83,24 +83,31 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                title: Text(
-                  'Urutkan transaksi',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ListTile(
+                    title: Text(
+                      'Urutkan transaksi',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  for (final sort in TransactionSort.values)
+                    ListTile(
+                      title: Text(sort.label),
+                      trailing: sort == _filter.sort
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                      onTap: () => Navigator.of(context).pop(sort),
+                    ),
+                ],
               ),
-              for (final sort in TransactionSort.values)
-                ListTile(
-                  title: Text(sort.label),
-                  trailing: sort == _filter.sort
-                      ? const Icon(Icons.check_rounded)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(sort),
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -141,7 +148,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           sliver: SliverToBoxAdapter(
             child: AppPageHeader(
               title: 'Transaksi',
-              subtitle: 'Semua aktivitas keuangan usaha',
               trailing: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -278,35 +284,46 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           ),
           data: (items) {
             if (items.isEmpty) {
-              return SliverFillRemaining(
-                hasScrollBody: false,
-                child: hasQuery
-                    ? EmptyState(
-                        icon: Icons.search_off_rounded,
-                        title: 'Transaksi tidak ditemukan',
-                        message:
-                            'Ubah kata pencarian atau longgarkan filter yang aktif.',
-                        primaryAction: OutlinedButton(
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _filter = const TransactionFilter();
-                            });
-                          },
-                          child: const Text('Reset filter'),
-                        ),
-                      )
-                    : EmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Belum ada transaksi',
-                        message:
-                            'Catat pemasukan atau pengeluaran pertama untuk mulai melihat arus kas usaha.',
-                        primaryAction: FilledButton.icon(
-                          onPressed: () => context.go('/transactions/new'),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Catat transaksi pertama'),
-                        ),
+              final emptyState = hasQuery
+                  ? EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'Transaksi tidak ditemukan',
+                      message:
+                          'Ubah kata pencarian atau longgarkan filter yang aktif.',
+                      primaryAction: OutlinedButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _filter = const TransactionFilter();
+                          });
+                        },
+                        child: const Text('Reset filter'),
                       ),
+                    )
+                  : EmptyState(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Belum ada transaksi',
+                      message:
+                          'Catat pemasukan atau pengeluaran pertama untuk mulai melihat arus kas usaha.',
+                      primaryAction: FilledButton.icon(
+                        onPressed: () => context.go('/transactions/new'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Catat transaksi pertama'),
+                      ),
+                    );
+              return SliverFillRemaining(
+                hasScrollBody: true,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: emptyState,
+                    ),
+                  ),
+                ),
               );
             }
             return SliverPadding(

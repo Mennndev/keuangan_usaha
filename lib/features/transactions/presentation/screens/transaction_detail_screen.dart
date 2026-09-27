@@ -72,7 +72,6 @@ class TransactionDetailScreen extends ConsumerWidget {
               sliver: SliverToBoxAdapter(
                 child: AppPageHeader(
                   title: 'Detail transaksi',
-                  subtitle: 'Informasi transaksi usaha',
                   leading: IconButton(
                     tooltip: 'Kembali',
                     onPressed: () => context.go('/transactions'),

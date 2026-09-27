@@ -69,7 +69,6 @@ class _CreditPaymentDialogState extends ConsumerState<CreditPaymentDialog> {
         const SnackBar(content: Text('Pembayaran kredit berhasil dicatat')),
       );
       Navigator.of(context).pop();
-      ref.invalidate(creditsProvider);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

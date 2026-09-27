@@ -1,7 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import 'dart:ui';
-
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -146,8 +143,9 @@ class BackupRestoreService {
     );
     if (result == null) return null;
     final raw = result['bytes'];
-    if (raw is! Uint8List)
+    if (raw is! Uint8List) {
       throw const FormatException('File cadangan tidak dapat dibaca.');
+    }
     final decoded = jsonDecode(utf8.decode(raw));
     if (decoded is! Map<String, dynamic> ||
         decoded['format'] != 'keuangan_usaha_backup' ||
@@ -158,13 +156,15 @@ class BackupRestoreService {
     final sourceTables = decoded['tables'] as Map<String, dynamic>;
     final tables = <String, List<Map<String, Object?>>>{};
     for (final table in _tables.entries) {
-      if (sourceTables[table.key] is! List)
+      if (sourceTables[table.key] is! List) {
         throw FormatException('Data tabel ${table.key} tidak lengkap.');
+      }
       final rows = <Map<String, Object?>>[];
       for (final item in sourceTables[table.key] as List) {
         if (item is! Map ||
-            table.value.any((column) => !item.containsKey(column)))
+            table.value.any((column) => !item.containsKey(column))) {
           throw FormatException('Isi tabel ${table.key} tidak valid.');
+        }
         rows.add(Map<String, Object?>.from(item));
       }
       tables[table.key] = rows;

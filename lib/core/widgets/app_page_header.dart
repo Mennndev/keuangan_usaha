@@ -5,14 +5,12 @@ import '../../app/theme/app_colors.dart';
 class AppPageHeader extends StatelessWidget {
   const AppPageHeader({
     required this.title,
-    required this.subtitle,
     this.leading,
     this.trailing,
     super.key,
   });
 
   final String title;
-  final String subtitle;
   final Widget? leading;
   final Widget? trailing;
 
@@ -23,81 +21,51 @@ class AppPageHeader extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 520 && trailing != null;
         final titleSection = Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: colors.infoSurface,
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(14),
               ),
               alignment: Alignment.center,
               child: leading ?? Icon(_iconForTitle(title), color: colors.info),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                    ),
-                  ),
-                ],
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
           ],
         );
 
         if (compact) {
-          return _surface(
-            colors,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                titleSection,
-                const SizedBox(height: 14),
-                Align(alignment: Alignment.centerRight, child: trailing!),
-              ],
-            ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleSection,
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerRight, child: trailing!),
+            ],
           );
         }
 
-        return _surface(
-          colors,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(child: titleSection),
-              if (trailing != null) ...[const SizedBox(width: 12), trailing!],
-            ],
-          ),
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleSection),
+            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          ],
         );
       },
     );
   }
-
-  Widget _surface(AppColors colors, Widget child) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: Color.lerp(colors.card, colors.infoSurface, .22),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: colors.border.withValues(alpha: .8)),
-    ),
-    child: child,
-  );
 
   IconData _iconForTitle(String title) {
     final value = title.toLowerCase();

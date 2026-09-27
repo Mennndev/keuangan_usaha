@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../../../../database/database_provider.dart';
 import '../../../../database/app_database.dart';
 import '../../../../database/daos/product_dao.dart';
+import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../data/transaction_repository.dart';
 import '../../domain/finance_summary.dart';
 import '../../domain/finance_transaction.dart';
@@ -59,9 +60,9 @@ final categoryTotalsProvider = StreamProvider.autoDispose
           .watchCategoryTotals(request);
     });
 
-final creditsProvider = FutureProvider.autoDispose<List<FinanceTransaction>>(
+final creditsProvider = StreamProvider.autoDispose<List<FinanceTransaction>>(
   (ref) =>
-      ref.watch(transactionRepositoryProvider).getCredits(includePaid: true),
+      ref.watch(transactionRepositoryProvider).watchCredits(includePaid: true),
 );
 
 final creditPaymentHistoryProvider = StreamProvider.autoDispose
@@ -98,6 +99,9 @@ class TransactionController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     try {
       final id = await _repository.create(input);
+      if (input.isCredit && input.type == TransactionType.income) {
+        ref.invalidate(customersProvider);
+      }
       state = const AsyncData(null);
       return id;
     } catch (error, stackTrace) {
@@ -113,6 +117,9 @@ class TransactionController extends AsyncNotifier<void> {
       final updated = await _repository.update(id, input);
       if (!updated) {
         throw StateError('Transaksi tidak ditemukan.');
+      }
+      if (input.isCredit && input.type == TransactionType.income) {
+        ref.invalidate(customersProvider);
       }
       state = const AsyncData(null);
     } catch (error, stackTrace) {

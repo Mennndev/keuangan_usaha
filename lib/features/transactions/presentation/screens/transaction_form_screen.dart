@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../customers/domain/customer.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 
 import '../../../../core/formatters/currency_formatter.dart';
@@ -146,10 +145,21 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Future<void> _pickCreditDueDate() async {
+    // Bug fix: `firstDate` used to always be `DateTime.now()`. When editing a
+    // credit transaction whose due date is already in the past (overdue),
+    // `initialDate` (the old, past due date) would fall *before* `firstDate`,
+    // which makes `showDatePicker` throw an assertion error and crash the
+    // screen. We now let `firstDate` go as far back as the current due date
+    // so the picker always opens safely, whether the transaction is new,
+    // upcoming, or overdue.
+    final today = DateTime.now();
+    final firstSelectableDate = _creditDueDate.isBefore(today)
+        ? _creditDueDate
+        : today;
     final picked = await showDatePicker(
       context: context,
       initialDate: _creditDueDate,
-      firstDate: DateTime.now(),
+      firstDate: firstSelectableDate,
       lastDate: DateTime(DateTime.now().year + 10, 12, 31),
       helpText: 'Pilih tanggal jatuh tempo pembayaran',
       cancelText: 'Batal',
@@ -234,6 +244,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           await ref
               .read(customerRepositoryProvider)
               .save(name: name.text, phone: phone.text);
+          // Bug fix: this `mounted` check was missing. If the user leaves the
+          // screen while `save()` is still awaiting, calling `_markDirty()`
+          // (which calls `setState`) afterwards would throw
+          // "setState() called after dispose()".
+          if (!mounted) return;
           ref.invalidate(customersProvider);
           _creditCustomerController.text = name.text.trim();
           _markDirty();
@@ -282,8 +297,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 hintText: 'Ketik atau cari nama pelanggan',
               ),
               validator: (value) {
-                if (_isCredit &&
-                    (value == null || value.trim().isEmpty)) {
+                if (_isCredit && (value == null || value.trim().isEmpty)) {
                   return 'Pelanggan wajib diisi untuk penjualan kredit';
                 }
                 return null;
@@ -309,10 +323,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     shrinkWrap: true,
                     itemCount: matches.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      height: 1,
-                      indent: 56,
-                    ),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1, indent: 56),
                     itemBuilder: (context, index) {
                       final customer = matches[index];
                       return ListTile(
@@ -463,6 +475,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             key: ValueKey(
               '${_productToAdd ?? 'empty'}-${_selectedProducts.length}',
             ),
+            // Bug fix: `value` is deprecated since Flutter v3.33 in favor of
+            // `initialValue`.
             initialValue: _productToAdd,
             decoration: const InputDecoration(
               labelText: 'Tambah produk',

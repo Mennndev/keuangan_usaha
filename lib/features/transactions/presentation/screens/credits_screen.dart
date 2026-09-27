@@ -8,6 +8,8 @@ import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../../core/widgets/loading_state.dart';
+import '../../../../core/widgets/transaction_type_badge.dart';
 import '../../domain/finance_transaction.dart';
 import '../providers/transaction_providers.dart';
 import 'credit_payment_screen.dart';
@@ -27,16 +29,7 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
     final creditsAsync = ref.watch(creditsProvider);
 
     return creditsAsync.when(
-      loading: () => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Memuat daftar kredit…'),
-          ],
-        ),
-      ),
+      loading: () => const AppLoadingState(message: 'Memuat daftar kredit…'),
       error: (error, stackTrace) => ErrorState(
         message: 'Daftar kredit belum dapat dibuka.',
         onRetry: () => ref.invalidate(creditsProvider),
@@ -215,15 +208,19 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
         )
         .toList();
     if (overdue.isEmpty && dueSoon.isEmpty) return const [];
-    final color = overdue.isNotEmpty
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.tertiary;
+    final overdueColor = context.appColors.expense;
+    final dueSoonColor = context.appColors.creditPending;
     return [
       const SizedBox(height: 14),
       Card(
-        color: color.withValues(alpha: .08),
+        color: (overdue.isNotEmpty ? overdueColor : dueSoonColor).withValues(
+          alpha: .08,
+        ),
         child: ExpansionTile(
-          leading: Icon(Icons.notifications_active_outlined, color: color),
+          leading: Icon(
+            Icons.notifications_active_outlined,
+            color: overdue.isNotEmpty ? overdueColor : dueSoonColor,
+          ),
           title: Text(
             '${overdue.length} terlambat · ${dueSoon.length} jatuh tempo 7 hari ini',
           ),
@@ -237,7 +234,10 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
                 ),
                 trailing: Text(
                   CurrencyFormatter.format(item.creditRemainingAmount),
-                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: overdue.contains(item) ? overdueColor : dueSoonColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
           ],
@@ -257,7 +257,16 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
   Widget _buildCreditCard(BuildContext context, FinanceTransaction credit) {
     final remaining = credit.creditRemainingAmount;
     final isPaid = credit.creditStatus == CreditStatus.paid;
-    final color = _getStatusColor(context, credit.creditStatus);
+    final due = credit.creditDueDate;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isOverdue =
+        !isPaid &&
+        due != null &&
+        DateTime(due.year, due.month, due.day).isBefore(today);
+    final color = isOverdue
+        ? context.appColors.expense
+        : _getStatusColor(context, credit.creditStatus);
     final paidProgress = credit.amount <= 0
         ? 0.0
         : (credit.creditPaidAmount / credit.amount).clamp(0.0, 1.0).toDouble();
@@ -295,13 +304,16 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _CreditStatusBadge(status: credit.creditStatus, color: color),
+                  CreditStatusBadge(
+                    status: credit.creditStatus,
+                    isOverdue: isOverdue,
+                  ),
                   Text(
                     'Sisa ${CurrencyFormatter.format(remaining)}',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: remaining == 0
                           ? context.appColors.income
-                          : context.appColors.expense,
+                          : context.appColors.creditPending,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -417,10 +429,9 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
   }
 
   Color _getStatusColor(BuildContext context, CreditStatus status) {
-    final scheme = Theme.of(context).colorScheme;
     return switch (status) {
-      CreditStatus.pending => scheme.error,
-      CreditStatus.partial => scheme.tertiary,
+      CreditStatus.pending ||
+      CreditStatus.partial => context.appColors.creditPending,
       CreditStatus.paid => context.appColors.income,
     };
   }
@@ -452,14 +463,18 @@ class _CreditSummaryCard extends StatelessWidget {
     final (background, foreground) = switch (tone) {
       _CreditSummaryTone.info => (colors.infoSurface, colors.info),
       _CreditSummaryTone.paid => (colors.incomeSurface, colors.income),
-      _CreditSummaryTone.remaining => (colors.expenseSurface, colors.expense),
+      _CreditSummaryTone.remaining => (
+        colors.creditPendingSurface,
+        colors.creditPending,
+      ),
     };
     return Container(
-      constraints: const BoxConstraints(minHeight: 108),
-      padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(minHeight: 120),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
+        color: Color.lerp(colors.card, background, .72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: foreground.withValues(alpha: .14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,27 +482,36 @@ class _CreditSummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: foreground),
-              const SizedBox(width: 8),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 18, color: foreground),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           FittedBox(
             alignment: Alignment.centerLeft,
             fit: BoxFit.scaleDown,
             child: Text(
               CurrencyFormatter.format(amount),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: foreground,
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -530,37 +554,12 @@ class _CreditAmount extends StatelessWidget {
           child: Text(
             CurrencyFormatter.format(amount),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: emphasized ? colors.expense : null,
+              color: emphasized ? colors.creditPending : null,
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CreditStatusBadge extends StatelessWidget {
-  const _CreditStatusBadge({required this.status, required this.color});
-
-  final CreditStatus status;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        status.label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

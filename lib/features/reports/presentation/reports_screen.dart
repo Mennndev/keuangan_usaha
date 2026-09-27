@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_colors.dart';
 import '../../../core/formatters/currency_formatter.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/widgets/app_page_header.dart';
@@ -9,6 +10,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/finance_chart.dart';
 import '../../../core/widgets/finance_summary_card.dart';
+import '../../../core/widgets/loading_state.dart';
 import '../../../core/widgets/period_selector.dart';
 import '../../../core/widgets/transaction_list_item.dart';
 import '../../transactions/domain/finance_summary.dart';
@@ -73,14 +75,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           );
     final totals = ref.watch(financeTotalsProvider(range));
     final previousTotals = ref.watch(financeTotalsProvider(previousRange));
-    final categoryTotals = ref.watch(
-      categoryTotalsProvider(
-        CategoryReportRequest(range: range, type: _categoryType),
-      ),
+    final categoryRequest = CategoryReportRequest(
+      range: range,
+      type: _categoryType,
     );
-    final points = ref.watch(
-      cashFlowProvider(CashFlowRequest(range: range, groupByMonth: _yearly)),
+    final categoryTotals = ref.watch(categoryTotalsProvider(categoryRequest));
+    final cashFlowRequest = CashFlowRequest(
+      range: range,
+      groupByMonth: _yearly,
     );
+    final points = ref.watch(cashFlowProvider(cashFlowRequest));
     final transactions = ref.watch(
       transactionsProvider(
         TransactionFilter(start: range.start, end: range.end, limit: 1000),
@@ -154,6 +158,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             previousLabel: _yearly
                                 ? 'tahun sebelumnya'
                                 : 'bulan sebelumnya',
+                            onRetry: () => ref.invalidate(
+                              financeTotalsProvider(previousRange),
+                            ),
                           ),
                         ],
                       ),
@@ -180,10 +187,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                     message: 'Menyiapkan grafik…',
                                     height: 220,
                                   ),
-                                  error: (error, stackTrace) => const ErrorState(
+                                  error: (error, stackTrace) => ErrorState(
                                     message:
                                         'Grafik periode belum dapat dimuat.',
                                     compact: true,
+                                    onRetry: () => ref.invalidate(
+                                      cashFlowProvider(cashFlowRequest),
+                                    ),
                                   ),
                                   data: (data) => FinanceChart(points: data),
                                 ),
@@ -209,11 +219,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                     message: 'Memuat ringkasan…',
                                     height: 160,
                                   ),
-                                  error: (error, stackTrace) =>
-                                      const ErrorState(
-                                        message: 'Ringkasan belum tersedia.',
-                                        compact: true,
-                                      ),
+                                  error: (error, stackTrace) => ErrorState(
+                                    message: 'Ringkasan belum tersedia.',
+                                    compact: true,
+                                    onRetry: () => ref.invalidate(
+                                      financeTotalsProvider(range),
+                                    ),
+                                  ),
                                   data: (summary) => Column(
                                     children: [
                                       _SummaryRow(
@@ -261,6 +273,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       totals: categoryTotals,
                       onTypeChanged: (type) =>
                           setState(() => _categoryType = type),
+                      onRetry: () => ref.invalidate(
+                        categoryTotalsProvider(categoryRequest),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -338,11 +353,13 @@ class _CategoryBreakdown extends StatelessWidget {
     required this.type,
     required this.totals,
     required this.onTypeChanged,
+    required this.onRetry,
   });
 
   final TransactionType type;
   final AsyncValue<List<CategoryFinanceSummary>> totals;
   final ValueChanged<TransactionType> onTypeChanged;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -373,9 +390,15 @@ class _CategoryBreakdown extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           totals.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (error, stack) =>
-                const Text('Rincian kategori belum dapat dimuat.'),
+            loading: () => const AppLoadingState(
+              compact: true,
+              message: 'Memuat kategori…',
+            ),
+            error: (error, stack) => ErrorState(
+              compact: true,
+              message: 'Rincian kategori belum dapat dimuat.',
+              onRetry: onRetry,
+            ),
             data: (items) {
               if (items.isEmpty)
                 return const Text(
@@ -414,8 +437,8 @@ class _CategoryBreakdown extends StatelessWidget {
                               value: maximum == 0 ? 0 : item.amount / maximum,
                               minHeight: 7,
                               color: type == TransactionType.expense
-                                  ? Theme.of(context).colorScheme.error
-                                  : Theme.of(context).colorScheme.primary,
+                                  ? context.appColors.expense
+                                  : context.appColors.income,
                               backgroundColor: Theme.of(
                                 context,
                               ).colorScheme.surfaceContainerHighest,
@@ -444,19 +467,27 @@ class _PeriodComparison extends StatelessWidget {
     required this.current,
     required this.previous,
     required this.previousLabel,
+    required this.onRetry,
   });
   final FinanceSummary current;
   final AsyncValue<FinanceSummary> previous;
   final String previousLabel;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: previous.when(
-        loading: () => const LinearProgressIndicator(),
-        error: (error, stack) =>
-            const Text('Perbandingan periode sebelumnya belum tersedia.'),
+        loading: () => const AppLoadingState(
+          compact: true,
+          message: 'Memuat perbandingan…',
+        ),
+        error: (error, stack) => ErrorState(
+          compact: true,
+          message: 'Perbandingan periode sebelumnya belum tersedia.',
+          onRetry: onRetry,
+        ),
         data: (prior) {
           final incomeDelta = current.income - prior.income;
           final expenseDelta = current.expense - prior.expense;
@@ -641,16 +672,7 @@ class _ReportLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 10),
-            Text(message),
-          ],
-        ),
-      ),
+      child: AppLoadingState(message: message, compact: true),
     );
   }
 }

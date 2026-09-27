@@ -9,6 +9,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.expenseSurface,
     required this.info,
     required this.infoSurface,
+    required this.creditPending,
+    required this.creditPendingSurface,
     required this.canvas,
     required this.card,
     required this.border,
@@ -22,6 +24,8 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color expenseSurface;
   final Color info;
   final Color infoSurface;
+  final Color creditPending;
+  final Color creditPendingSurface;
   final Color canvas;
   final Color card;
   final Color border;
@@ -29,12 +33,14 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color textSecondary;
 
   static const light = AppColors(
-    income: Color(0xFF16A34A),
+    income: Color(0xFF15803D),
     incomeSurface: Color(0xFFF0FDF4),
-    expense: Color(0xFFDC2626),
+    expense: Color(0xFFB91C1C),
     expenseSurface: Color(0xFFFEF2F2),
     info: Color(0xFF2563EB),
     infoSurface: Color(0xFFEFF6FF),
+    creditPending: Color(0xFFB45309),
+    creditPendingSurface: Color(0xFFFFF7E6),
     canvas: Color(0xFFF5F7FA),
     card: Colors.white,
     border: Color(0xFFE5E7EB),
@@ -49,6 +55,8 @@ class AppColors extends ThemeExtension<AppColors> {
     expenseSurface: Color(0xFF481B1B),
     info: Color(0xFF60A5FA),
     infoSurface: Color(0xFF172B4D),
+    creditPending: Color(0xFFFBBF24),
+    creditPendingSurface: Color(0xFF422006),
     canvas: Color(0xFF0F172A),
     card: Color(0xFF172033),
     border: Color(0xFF334155),
@@ -64,6 +72,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? expenseSurface,
     Color? info,
     Color? infoSurface,
+    Color? creditPending,
+    Color? creditPendingSurface,
     Color? canvas,
     Color? card,
     Color? border,
@@ -77,6 +87,8 @@ class AppColors extends ThemeExtension<AppColors> {
       expenseSurface: expenseSurface ?? this.expenseSurface,
       info: info ?? this.info,
       infoSurface: infoSurface ?? this.infoSurface,
+      creditPending: creditPending ?? this.creditPending,
+      creditPendingSurface: creditPendingSurface ?? this.creditPendingSurface,
       canvas: canvas ?? this.canvas,
       card: card ?? this.card,
       border: border ?? this.border,
@@ -95,6 +107,12 @@ class AppColors extends ThemeExtension<AppColors> {
       expenseSurface: Color.lerp(expenseSurface, other.expenseSurface, t)!,
       info: Color.lerp(info, other.info, t)!,
       infoSurface: Color.lerp(infoSurface, other.infoSurface, t)!,
+      creditPending: Color.lerp(creditPending, other.creditPending, t)!,
+      creditPendingSurface: Color.lerp(
+        creditPendingSurface,
+        other.creditPendingSurface,
+        t,
+      )!,
       canvas: Color.lerp(canvas, other.canvas, t)!,
       card: Color.lerp(card, other.card, t)!,
       border: Color.lerp(border, other.border, t)!,

@@ -4,6 +4,7 @@ import '../../app/theme/app_colors.dart';
 import '../../features/transactions/domain/finance_transaction.dart';
 import '../formatters/date_formatter.dart';
 import 'currency_text.dart';
+import 'transaction_type_badge.dart';
 
 enum TransactionMenuAction { edit, delete }
 
@@ -52,6 +53,13 @@ class TransactionListItem extends StatelessWidget {
                 color: context.appColors.textSecondary,
               ),
             ),
+            if (transaction.isCredit) ...[
+              const SizedBox(height: 6),
+              CreditStatusBadge(
+                status: transaction.creditStatus,
+                isOverdue: _isOverdue,
+              ),
+            ],
           ],
         );
         final icon = Container(
@@ -116,6 +124,19 @@ class TransactionListItem extends StatelessWidget {
     );
     if (!showCard) return content;
     return Card(clipBehavior: Clip.antiAlias, child: content);
+  }
+
+  bool get _isOverdue {
+    final due = transaction.creditDueDate;
+    if (transaction.creditStatus == CreditStatus.paid || due == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    return DateTime(
+      due.year,
+      due.month,
+      due.day,
+    ).isBefore(DateTime(now.year, now.month, now.day));
   }
 
   Widget? _actions(BuildContext context) {

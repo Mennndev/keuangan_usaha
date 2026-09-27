@@ -8,6 +8,7 @@ import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../../core/widgets/loading_state.dart';
 import '../../../products/domain/product.dart';
 import '../../../../database/daos/product_dao.dart';
 import '../../../products/presentation/providers/product_providers.dart';
@@ -587,16 +588,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         transactionByIdProvider(widget.transactionId!),
       );
       return transaction.when(
-        loading: () => const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text('Menyiapkan form transaksi…'),
-            ],
-          ),
-        ),
+        loading: () =>
+            const AppLoadingState(message: 'Menyiapkan form transaksi…'),
         error: (error, stackTrace) => ErrorState(
           message: 'Detail transaksi belum dapat dibuka.',
           onRetry: () =>
@@ -610,9 +603,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           }
           final sales = ref.watch(productSaleProvider(value.id));
           return sales.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const AppLoadingState(
+              message: 'Memuat rincian produk transaksi…',
+            ),
             error: (error, stack) => ErrorState(
+              compact: true,
               message: 'Informasi produk transaksi belum dapat dimuat.',
+              onRetry: () => ref.invalidate(productSaleProvider(value.id)),
             ),
             data: (saleValues) {
               _populate(value, saleValues);
@@ -711,8 +708,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               const SizedBox(height: 16),
                               productsAsync.when(
                                 loading: () => const LinearProgressIndicator(),
-                                error: (error, stack) => const Text(
-                                  'Daftar produk tidak dapat dimuat.',
+                                error: (error, stack) => ErrorState(
+                                  compact: true,
+                                  message: 'Daftar produk tidak dapat dimuat.',
+                                  onRetry: () =>
+                                      ref.invalidate(productsProvider),
                                 ),
                                 data: (products) =>
                                     _buildProductPicker(products),
@@ -773,24 +773,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               onChanged: _markDirty,
                             ),
                             if (_type == TransactionType.income) ...[
-                              const SizedBox(height: 20),
-                              SwitchListTile(
-                                title: const Text('Penjualan Kredit'),
-                                subtitle: const Text(
-                                  'Pelanggan membayar di bulan berikutnya',
-                                ),
-                                value: _isCredit,
-                                onChanged: _submitting
-                                    ? null
-                                    : (value) => setState(() {
-                                        _isCredit = value;
-                                        _dirty = true;
-                                      }),
-                                contentPadding: EdgeInsets.zero,
+                              const SizedBox(height: 24),
+                              _FormSectionHeading(
+                                icon: Icons.person_outline_rounded,
+                                title: 'Pelanggan',
+                                subtitle: 'Opsional untuk pembayaran langsung',
                               ),
-                            ],
-                            if (_type == TransactionType.income) ...[
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 14),
                               AppTextField(
                                 controller: _creditCustomerController,
                                 label: _isCredit
@@ -830,16 +819,78 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                   ),
                                 ],
                               ),
-                            ],
-                            if (_isCredit) ...[
-                              const SizedBox(height: 16),
-                              AppTextField(
-                                controller: _creditDueDateController,
-                                label: 'Tanggal Jatuh Tempo',
-                                readOnly: true,
-                                onTap: _submitting ? null : _pickCreditDueDate,
-                                suffixIcon: const Icon(
-                                  Icons.calendar_today_outlined,
+                              const SizedBox(height: 18),
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  8,
+                                  14,
+                                  14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    SwitchListTile(
+                                      title: const Text('Penjualan kredit'),
+                                      subtitle: const Text(
+                                        'Catat jika pelanggan membayar nanti',
+                                      ),
+                                      value: _isCredit,
+                                      onChanged: _submitting
+                                          ? null
+                                          : (value) => setState(() {
+                                              _isCredit = value;
+                                              _dirty = true;
+                                            }),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    AnimatedSize(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      curve: Curves.easeInOutCubic,
+                                      alignment: Alignment.topCenter,
+                                      child: _isCredit
+                                          ? Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                const Divider(height: 20),
+                                                Text(
+                                                  'Rincian pembayaran kredit',
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.labelLarge,
+                                                ),
+                                                const SizedBox(height: 10),
+                                                AppTextField(
+                                                  controller:
+                                                      _creditDueDateController,
+                                                  label: 'Tanggal jatuh tempo',
+                                                  readOnly: true,
+                                                  onTap: _submitting
+                                                      ? null
+                                                      : _pickCreditDueDate,
+                                                  suffixIcon: const Icon(
+                                                    Icons
+                                                        .calendar_today_outlined,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -898,6 +949,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ),
     );
   }
+}
+
+class _FormSectionHeading extends StatelessWidget {
+  const _FormSectionHeading({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 Product? _findProduct(List<Product> products, String id) {

@@ -91,6 +91,9 @@ class AppTheme {
         fillColor: brightness == Brightness.light
             ? colors.canvas.withValues(alpha: .72)
             : colors.canvas.withValues(alpha: .55),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+        helperStyle: textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+        errorStyle: textTheme.bodySmall?.copyWith(color: colors.expense),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -127,10 +130,28 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           minimumSize: const Size(44, 44),
           tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
       ),
       listTileTheme: ListTileThemeData(
@@ -167,17 +188,13 @@ class AppTheme {
         backgroundColor: colors.card,
         indicatorColor: colors.infoSurface,
         elevation: 4,
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (states) => TextStyle(
-            fontSize: 11,
-            fontWeight: states.contains(WidgetState.selected)
-                ? FontWeight.w600
-                : FontWeight.w500,
-            color: states.contains(WidgetState.selected)
-                ? colors.info
-                : colors.textSecondary,
-          ),
-        ),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return textTheme.labelSmall?.copyWith(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? colors.info : colors.textSecondary,
+          );
+        }),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: colors.card,
@@ -205,7 +222,7 @@ class AppTheme {
           color: colors.textPrimary,
           borderRadius: BorderRadius.circular(10),
         ),
-        textStyle: TextStyle(color: colors.card, fontSize: 12),
+        textStyle: textTheme.labelSmall?.copyWith(color: colors.card),
       ),
       dividerColor: colors.border,
       snackBarTheme: SnackBarThemeData(

@@ -8,6 +8,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/finance_chart.dart';
 import '../../../core/widgets/finance_summary_card.dart';
+import '../../../core/widgets/loading_state.dart';
 import '../../../core/widgets/transaction_list_item.dart';
 import '../../settings/presentation/providers/settings_providers.dart';
 import '../../transactions/domain/finance_summary.dart';
@@ -76,6 +77,11 @@ class DashboardScreen extends ConsumerWidget {
                     summary: summary,
                     transactions: transactions,
                     points: points,
+                    onRetryPoints: () => ref.invalidate(
+                      cashFlowProvider(
+                        CashFlowRequest(range: range, groupByMonth: true),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -92,11 +98,13 @@ class _DashboardContent extends StatelessWidget {
     required this.summary,
     required this.transactions,
     required this.points,
+    required this.onRetryPoints,
   });
 
   final FinanceSummary summary;
   final List<FinanceTransaction> transactions;
   final AsyncValue<List<CashFlowPoint>> points;
+  final VoidCallback onRetryPoints;
 
   @override
   Widget build(BuildContext context) {
@@ -175,20 +183,15 @@ class _DashboardContent extends StatelessWidget {
                 child: points.when(
                   loading: () => const SizedBox(
                     height: 220,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 10),
-                          Text('Menyiapkan grafik…'),
-                        ],
-                      ),
+                    child: AppLoadingState(
+                      compact: true,
+                      message: 'Menyiapkan grafik…',
                     ),
                   ),
-                  error: (error, stackTrace) => const ErrorState(
+                  error: (error, stackTrace) => ErrorState(
                     message: 'Grafik arus kas belum dapat dimuat.',
                     compact: true,
+                    onRetry: onRetryPoints,
                   ),
                   data: (data) => FinanceChart(points: data),
                 ),
@@ -312,18 +315,6 @@ class _DashboardLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 80),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Menghitung ringkasan keuangan…'),
-          ],
-        ),
-      ),
-    );
+    return const AppLoadingState(message: 'Menghitung ringkasan keuangan…');
   }
 }

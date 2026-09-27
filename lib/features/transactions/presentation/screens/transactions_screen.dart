@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../../core/widgets/loading_state.dart';
 import '../../../../core/widgets/transaction_list_item.dart';
 import '../../domain/finance_transaction.dart';
 import '../../domain/transaction_filter.dart';
@@ -266,16 +267,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         transactions.when(
           loading: () => const SliverFillRemaining(
             hasScrollBody: false,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('Memuat transaksi…'),
-                ],
-              ),
-            ),
+            child: AppLoadingState(message: 'Memuat transaksi…'),
           ),
           error: (error, stackTrace) => SliverFillRemaining(
             hasScrollBody: false,

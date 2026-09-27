@@ -1,12 +1,14 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:ui';
 
 import '../../../core/formatters/currency_formatter.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/loading_state.dart';
 import 'providers/customer_providers.dart';
 import '../domain/customer.dart';
 import '../data/customer_export_service.dart';
@@ -141,12 +143,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
                 child: customers.when(
-                  loading: () => const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
+                  loading: () =>
+                      const AppLoadingState(message: 'Memuat pelanggan…'),
                   error: (error, stack) => ErrorState(
                     message: 'Data pelanggan belum dapat dimuat.',
                     onRetry: () => ref.invalidate(customersProvider),
@@ -234,30 +232,38 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                     child: Icon(Icons.person_outline),
                                   ),
                                   title: Text(customer.name),
-                                  subtitle: Text(
-                                    customer.phone ??
-                                        'Nomor telepon belum diisi',
-                                  ),
-                                  trailing: Wrap(
+                                  subtitle: Column(
                                     crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    spacing: 2,
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      Text(
+                                        customer.phone ??
+                                            'Nomor telepon belum diisi',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                       FutureBuilder<int>(
                                         future: ref
                                             .read(customerRepositoryProvider)
                                             .transactionCount(customer),
                                         builder: (context, snapshot) => Text(
-                                          '${snapshot.data ?? 0} transaksi',
+                                          snapshot.connectionState ==
+                                                  ConnectionState.done
+                                              ? '${snapshot.data ?? 0} transaksi'
+                                              : 'Memuat riwayat…',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.labelSmall,
                                         ),
                                       ),
-                                      IconButton(
-                                        tooltip: 'Edit pelanggan',
-                                        onPressed: () =>
-                                            _editCustomer(context, customer),
-                                        icon: const Icon(Icons.edit_outlined),
-                                      ),
                                     ],
+                                  ),
+                                  trailing: IconButton(
+                                    tooltip: 'Edit pelanggan',
+                                    onPressed: () =>
+                                        _editCustomer(context, customer),
+                                    icon: const Icon(Icons.edit_outlined),
                                   ),
                                   onTap: () =>
                                       _showHistory(context, ref, customer),

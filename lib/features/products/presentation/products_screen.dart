@@ -8,6 +8,7 @@ import '../../../core/formatters/date_formatter.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/loading_state.dart';
 import '../../../database/database_provider.dart';
 import '../domain/product.dart';
 import 'providers/product_providers.dart';
@@ -78,14 +79,26 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                             if (shown.any((p) => p.stockQuantity <= 5)) ...[
                               const SizedBox(height: 10),
                               Card(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .errorContainer
-                                    .withValues(alpha: .35),
+                                color:
+                                    (shown.any(
+                                              (product) =>
+                                                  product.stockQuantity == 0,
+                                            )
+                                            ? context.appColors.expenseSurface
+                                            : context
+                                                  .appColors
+                                                  .creditPendingSurface)
+                                        .withValues(alpha: .78),
                                 child: ExpansionTile(
                                   leading: Icon(
                                     Icons.notifications_active_outlined,
-                                    color: Theme.of(context).colorScheme.error,
+                                    color:
+                                        shown.any(
+                                          (product) =>
+                                              product.stockQuantity == 0,
+                                        )
+                                        ? context.appColors.expense
+                                        : context.appColors.creditPending,
                                   ),
                                   title: Text(
                                     'Perlu restok (${shown.where((p) => p.stockQuantity <= 5).length})',
@@ -106,9 +119,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                               ? 'Habis'
                                               : 'Sisa ${p.stockQuantity}',
                                           style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.error,
+                                            color: p.stockQuantity == 0
+                                                ? context.appColors.expense
+                                                : context
+                                                      .appColors
+                                                      .creditPending,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
@@ -123,11 +138,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       },
                     ),
                     sales.when(
-                      loading: () => const LinearProgressIndicator(),
-                      error: (error, stack) => const ErrorState(
+                      loading: () => const AppLoadingState(
+                        compact: true,
+                        message: 'Memuat performa penjualan…',
+                      ),
+                      error: (error, stack) => ErrorState(
+                        compact: true,
                         message:
                             'Ringkasan penjualan produk belum dapat dimuat.',
-                        compact: true,
+                        onRetry: () =>
+                            ref.invalidate(productSalesProvider(_month)),
                       ),
                       data: (items) => _SalesHighlights(
                         items: _brand == null
@@ -210,11 +230,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     ),
                     const SizedBox(height: 12),
                     products.when(
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
-                        ),
+                      loading: () => const AppLoadingState(
+                        message: 'Memuat daftar produk…',
                       ),
                       error: (error, stack) => ErrorState(
                         message: 'Daftar produk belum dapat dimuat.',
@@ -265,13 +282,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         title: const Text('Riwayat stok masuk'),
                         children: [
                           movements.when(
-                            loading: () => const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator(),
+                            loading: () => const AppLoadingState(
+                              compact: true,
+                              message: 'Memuat riwayat stok…',
                             ),
-                            error: (error, stack) => const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text('Riwayat stok belum dapat dimuat.'),
+                            error: (error, stack) => ErrorState(
+                              compact: true,
+                              message: 'Riwayat stok belum dapat dimuat.',
+                              onRetry: () =>
+                                  ref.invalidate(stockMovementsProvider),
                             ),
                             data: (items) {
                               final restocks = items.where(
@@ -657,7 +676,7 @@ class _InventoryOverview extends StatelessWidget {
                 icon: Icons.notifications_active_outlined,
                 color: lowStock == 0
                     ? context.appColors.income
-                    : Theme.of(context).colorScheme.tertiary,
+                    : context.appColors.creditPending,
               ),
             ),
             SizedBox(

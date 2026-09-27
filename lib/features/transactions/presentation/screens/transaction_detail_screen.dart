@@ -9,6 +9,7 @@ import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../../core/widgets/currency_text.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../../core/widgets/loading_state.dart';
 import '../../../../core/widgets/transaction_type_badge.dart';
 import '../../domain/finance_transaction.dart';
 import '../providers/transaction_providers.dart';
@@ -41,16 +42,7 @@ class TransactionDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final transaction = ref.watch(transactionByIdProvider(transactionId));
     return transaction.when(
-      loading: () => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Memuat detail transaksi…'),
-          ],
-        ),
-      ),
+      loading: () => const AppLoadingState(message: 'Memuat detail transaksi…'),
       error: (error, stackTrace) => ErrorState(
         message: 'Detail transaksi belum dapat dimuat.',
         onRetry: () => ref.invalidate(transactionByIdProvider(transactionId)),
@@ -159,9 +151,17 @@ class TransactionDetailScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 8),
                               productSales.when(
-                                loading: () => const LinearProgressIndicator(),
-                                error: (error, stack) => const Text(
-                                  'Daftar produk transaksi belum dapat dimuat.',
+                                loading: () => const AppLoadingState(
+                                  compact: true,
+                                  message: 'Memuat produk terjual…',
+                                ),
+                                error: (error, stack) => ErrorState(
+                                  compact: true,
+                                  message:
+                                      'Daftar produk transaksi belum dapat dimuat.',
+                                  onRetry: () => ref.invalidate(
+                                    productSaleProvider(value.id),
+                                  ),
                                 ),
                                 data: (sales) => sales.isEmpty
                                     ? const Text(
@@ -203,7 +203,11 @@ class TransactionDetailScreen extends ConsumerWidget {
                               ),
                               _DetailRow(
                                 label: 'Status',
-                                value: value.creditStatus.label,
+                                value: '',
+                                valueWidget: CreditStatusBadge(
+                                  status: value.creditStatus,
+                                  isOverdue: _isOverdueCredit(value),
+                                ),
                               ),
                               _DetailRow(
                                 label: 'Jatuh Tempo',
@@ -233,9 +237,17 @@ class TransactionDetailScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 8),
                               paymentHistory!.when(
-                                loading: () => const LinearProgressIndicator(),
-                                error: (error, stack) => const Text(
-                                  'Riwayat pembayaran belum dapat dimuat.',
+                                loading: () => const AppLoadingState(
+                                  compact: true,
+                                  message: 'Memuat pembayaran…',
+                                ),
+                                error: (error, stack) => ErrorState(
+                                  compact: true,
+                                  message:
+                                      'Riwayat pembayaran belum dapat dimuat.',
+                                  onRetry: () => ref.invalidate(
+                                    creditPaymentHistoryProvider(value.id),
+                                  ),
                                 ),
                                 data: (payments) => payments.isEmpty
                                     ? const Text(
@@ -311,30 +323,60 @@ class TransactionDetailScreen extends ConsumerWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.valueWidget,
+  });
 
   final String label;
   final String value;
+  final Widget? valueWidget;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 148,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          );
+          final valueContent = valueWidget ?? Text(value);
+          if (constraints.maxWidth < 420) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: labelStyle),
+                const SizedBox(height: 4),
+                valueContent,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 148, child: Text(label, style: labelStyle)),
+              Expanded(child: valueContent),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+bool _isOverdueCredit(FinanceTransaction transaction) {
+  final due = transaction.creditDueDate;
+  if (!transaction.isCredit ||
+      transaction.creditRemainingAmount <= 0 ||
+      due == null) {
+    return false;
+  }
+  final now = DateTime.now();
+  return DateTime(
+    due.year,
+    due.month,
+    due.day,
+  ).isBefore(DateTime(now.year, now.month, now.day));
 }

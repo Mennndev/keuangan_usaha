@@ -7,6 +7,7 @@ import '../../../core/formatters/date_formatter.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/loading_state.dart';
 import '../data/transaction_export_service.dart';
 import '../../products/presentation/providers/product_providers.dart';
 import '../../customers/presentation/providers/customer_providers.dart';
@@ -332,16 +333,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final profile = ref.watch(businessProfileProvider);
     return profile.when(
-      loading: () => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Memuat pengaturan…'),
-          ],
-        ),
-      ),
+      loading: () => const AppLoadingState(message: 'Memuat pengaturan…'),
       error: (error, stackTrace) => ErrorState(
         message: 'Pengaturan belum dapat dibuka.',
         onRetry: () => ref.invalidate(businessProfileProvider),

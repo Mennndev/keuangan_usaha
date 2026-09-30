@@ -22,7 +22,15 @@ class CreditsScreen extends ConsumerStatefulWidget {
 }
 
 class _CreditsScreenState extends ConsumerState<CreditsScreen> {
+  final _searchController = TextEditingController();
   String _filterStatus = 'all';
+  _CreditSortOrder _sortOrder = _CreditSortOrder.newest;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +47,7 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
   }
 
   Widget _buildContent(BuildContext context, List<FinanceTransaction> credits) {
-    final filtered = _filterCredits(credits, _filterStatus);
+    final filtered = _filterCredits(credits);
     final total = credits.fold<int>(0, (sum, item) => sum + item.amount);
     final paid = credits.fold<int>(
       0,
@@ -54,12 +62,7 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          sliver: SliverToBoxAdapter(
-            child: AppPageHeader(
-              title: 'Kredit',
-              subtitle: 'Pantau tagihan pelanggan dan pembayaran yang masuk',
-            ),
-          ),
+          sliver: SliverToBoxAdapter(child: AppPageHeader(title: 'Kredit')),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -137,34 +140,120 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildFilterChip('Semua', 'all'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('Belum dibayar', 'pending'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('Sebagian', 'partial'),
-                          const SizedBox(width: 8),
-                          _buildFilterChip('Lunas', 'paid'),
-                        ],
-                      ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final search = TextField(
+                          controller: _searchController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            hintText: 'Cari nama pelanggan',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: _searchController.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: 'Hapus pencarian',
+                                    onPressed: () => setState(
+                                      _searchController.clear,
+                                    ),
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        );
+                        final sort = DropdownButtonFormField<_CreditSortOrder>(
+                          initialValue: _sortOrder,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Urutkan',
+                            prefixIcon: Icon(Icons.sort_rounded),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: _CreditSortOrder.newest,
+                              child: Text('Terbaru'),
+                            ),
+                            DropdownMenuItem(
+                              value: _CreditSortOrder.dueSoonest,
+                              child: Text(
+                                'Jatuh tempo terdekat',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: _CreditSortOrder.highestRemaining,
+                              child: Text('Sisa terbesar'),
+                            ),
+                            DropdownMenuItem(
+                              value: _CreditSortOrder.lowestRemaining,
+                              child: Text('Sisa terkecil'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _sortOrder = value);
+                            }
+                          },
+                        );
+                        if (constraints.maxWidth < 520) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              search,
+                              const SizedBox(height: 10),
+                              sort,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: search),
+                            const SizedBox(width: 12),
+                            SizedBox(width: 240, child: sort),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildFilterChip('Semua', 'all'),
+                        _buildFilterChip(
+                          'Belum dibayar',
+                          'pending',
+                        ),
+                        _buildFilterChip(
+                          'Sebagian',
+                          'partial',
+                        ),
+                        _buildFilterChip('Lunas', 'paid'),
+                        _buildFilterChip(
+                          'Jatuh tempo ≤7 hari',
+                          'dueSoon',
+                        ),
+                        _buildFilterChip('Terlambat', 'overdue'),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     if (filtered.isEmpty)
                       EmptyState(
                         icon: Icons.credit_card_off_outlined,
-                        title: _filterStatus == 'all'
+                        title: credits.isEmpty
                             ? 'Belum ada transaksi kredit'
-                            : 'Tidak ada kredit dengan status ini',
-                        message: _filterStatus == 'all'
+                            : 'Kredit tidak ditemukan',
+                        message: credits.isEmpty
                             ? 'Transaksi pemasukan dengan metode kredit akan muncul di sini.'
-                            : 'Coba pilih status lain untuk melihat transaksi kredit.',
-                        primaryAction: _filterStatus == 'all'
+                            : 'Coba ubah kata kunci atau filter yang dipilih.',
+                        primaryAction: credits.isEmpty
                             ? FilledButton.icon(
-                                onPressed: () =>
-                                    context.go('/transactions/new?type=income'),
+                                onPressed: () => context.go(
+                                  '/transactions/new?type=income',
+                                ),
                                 icon: const Icon(Icons.add),
                                 label: const Text('Catat pemasukan'),
                               )
@@ -252,6 +341,82 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
       selected: _filterStatus == status,
       onSelected: (_) => setState(() => _filterStatus = status),
     );
+  }
+
+  List<FinanceTransaction> _filterCredits(
+    List<FinanceTransaction> credits,
+  ) {
+    final query = _searchController.text.trim().toLowerCase();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueSoonLimit = today.add(const Duration(days: 7));
+    final filtered = credits.where((credit) {
+      if (query.isNotEmpty &&
+          !(credit.creditCustomerName ?? '').toLowerCase().contains(query) &&
+          !credit.name.toLowerCase().contains(query)) {
+        return false;
+      }
+      return switch (_filterStatus) {
+        'all' => true,
+        'pending' => credit.creditStatus == CreditStatus.pending,
+        'partial' => credit.creditStatus == CreditStatus.partial,
+        'paid' => credit.creditStatus == CreditStatus.paid,
+        'overdue' => _isOverdue(credit, today),
+        'dueSoon' => _isDueSoon(credit, today, dueSoonLimit),
+        _ => true,
+      };
+    }).toList();
+
+    filtered.sort((left, right) {
+      final comparison = switch (_sortOrder) {
+        _CreditSortOrder.newest =>
+          right.transactionDate.compareTo(left.transactionDate),
+        _CreditSortOrder.dueSoonest => _compareDueDates(left, right),
+        _CreditSortOrder.highestRemaining =>
+          right.creditRemainingAmount.compareTo(left.creditRemainingAmount),
+        _CreditSortOrder.lowestRemaining =>
+          left.creditRemainingAmount.compareTo(right.creditRemainingAmount),
+      };
+      return comparison != 0
+          ? comparison
+          : right.createdAt.compareTo(left.createdAt);
+    });
+    return filtered;
+  }
+
+  bool _isOverdue(FinanceTransaction credit, DateTime today) {
+    final due = credit.creditDueDate;
+    if (credit.creditRemainingAmount <= 0 || due == null) return false;
+    final dueDay = DateTime(due.year, due.month, due.day);
+    return dueDay.isBefore(today);
+  }
+
+  bool _isDueSoon(
+    FinanceTransaction credit,
+    DateTime today,
+    DateTime limit,
+  ) {
+    final due = credit.creditDueDate;
+    if (credit.creditRemainingAmount <= 0 || due == null) return false;
+    final dueDay = DateTime(due.year, due.month, due.day);
+    return !dueDay.isBefore(today) && !dueDay.isAfter(limit);
+  }
+
+  int _compareDueDates(
+    FinanceTransaction left,
+    FinanceTransaction right,
+  ) {
+    final leftOpen = left.creditRemainingAmount > 0;
+    final rightOpen = right.creditRemainingAmount > 0;
+    if (leftOpen != rightOpen) return leftOpen ? -1 : 1;
+    final leftDue = left.creditDueDate;
+    final rightDue = right.creditDueDate;
+    if (leftDue == null && rightDue != null) return 1;
+    if (leftDue != null && rightDue == null) return -1;
+    if (leftDue == null || rightDue == null) return 0;
+    final leftDay = DateTime(leftDue.year, leftDue.month, leftDue.day);
+    final rightDay = DateTime(rightDue.year, rightDue.month, rightDue.day);
+    return leftDay.compareTo(rightDay);
   }
 
   Widget _buildCreditCard(BuildContext context, FinanceTransaction credit) {
@@ -418,16 +583,6 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
     );
   }
 
-  List<FinanceTransaction> _filterCredits(
-    List<FinanceTransaction> credits,
-    String status,
-  ) {
-    if (status == 'all') return credits;
-    return credits
-        .where((c) => c.creditStatus.databaseValue == status)
-        .toList();
-  }
-
   Color _getStatusColor(BuildContext context, CreditStatus status) {
     return switch (status) {
       CreditStatus.pending ||
@@ -443,6 +598,8 @@ class _CreditsScreenState extends ConsumerState<CreditsScreen> {
     );
   }
 }
+
+enum _CreditSortOrder { newest, dueSoonest, highestRemaining, lowestRemaining }
 
 class _CreditSummaryCard extends StatelessWidget {
   const _CreditSummaryCard({

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../database/app_database.dart';
 import '../../../database/daos/product_dao.dart';
 import '../../../database/daos/transaction_dao.dart';
+import '../../customers/data/customer_repository.dart';
 import '../domain/finance_summary.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/transaction_filter.dart';
@@ -25,6 +26,7 @@ class TransactionRepository {
     final now = DateTime.now();
     final id = _uuid.v4();
     return _database.transaction(() async {
+      final creditCustomerName = await _savedCustomerName(input);
       final saleLines = await _resolveSaleLines(input);
       await _dao.insertTransaction(
         TransactionsCompanion.insert(
@@ -38,7 +40,7 @@ class TransactionRepository {
           createdAt: now,
           updatedAt: now,
           isCredit: Value(input.isCredit),
-          creditCustomerName: Value(_optionalText(input.creditCustomerName)),
+          creditCustomerName: Value(creditCustomerName),
           creditDueDate: Value(input.creditDueDate),
           creditPaidAmount: const Value(0),
           creditStatus: const Value('pending'),
@@ -73,6 +75,7 @@ class TransactionRepository {
         input,
         previousSales: previousSales,
       );
+      final creditCustomerName = await _savedCustomerName(input);
       final updated = await _dao.updateTransaction(
         id,
         TransactionsCompanion(
@@ -84,7 +87,7 @@ class TransactionRepository {
           transactionDate: Value(input.transactionDate),
           updatedAt: Value(DateTime.now()),
           isCredit: Value(input.isCredit),
-          creditCustomerName: Value(_optionalText(input.creditCustomerName)),
+          creditCustomerName: Value(creditCustomerName),
           creditDueDate: Value(input.creditDueDate),
         ),
       );
@@ -193,13 +196,22 @@ class TransactionRepository {
   Future<List<FinanceTransaction>> getAll() async =>
       (await _dao.getAllTransactions()).map(_map).toList(growable: false);
 
-  Future<List<FinanceTransaction>> getCredits({
+  Stream<List<FinanceTransaction>> watchCredits({
     bool includePaid = false,
-  }) async => (await _dao.getAllTransactions())
-      .where((r) => r.isCredit)
-      .where((r) => includePaid || r.creditStatus != 'paid')
-      .map(_map)
-      .toList(growable: false);
+  }) {
+    final query = _database.select(_database.transactions)
+      ..where((transaction) => transaction.isCredit.equals(true))
+      ..orderBy([
+        (transaction) => OrderingTerm.desc(transaction.transactionDate),
+        (transaction) => OrderingTerm.desc(transaction.createdAt),
+      ]);
+    if (!includePaid) {
+      query.where((transaction) => transaction.creditStatus.isNotValue('paid'));
+    }
+    return query
+        .watch()
+        .map((records) => records.map(_map).toList(growable: false));
+  }
 
   FinanceTransaction _map(TransactionRecord record) => FinanceTransaction(
     id: record.id,
@@ -218,6 +230,15 @@ class TransactionRepository {
     creditStatus: CreditStatusX.fromDatabase(record.creditStatus),
   );
 
+  Future<String?> _savedCustomerName(TransactionInput input) async {
+    final name = _optionalText(input.creditCustomerName);
+    if (!input.isCredit || input.type != TransactionType.income) return name;
+    if (name == null) {
+      throw ArgumentError('Nama pelanggan wajib untuk transaksi kredit.');
+    }
+    return CustomerRepository(_database).ensureExists(name);
+  }
+
   Future<bool> recordCreditPayment(
     String transactionId,
     int paymentAmount, {
@@ -228,8 +249,9 @@ class TransactionRepository {
       if (transaction == null ||
           !transaction.isCredit ||
           paymentAmount <= 0 ||
-          paymentAmount > transaction.creditRemainingAmount)
+          paymentAmount > transaction.creditRemainingAmount) {
         return false;
+      }
       final newPaidAmount = transaction.creditPaidAmount + paymentAmount;
       final remaining = transaction.amount - newPaidAmount;
       final status = remaining <= 0

@@ -16,70 +16,96 @@ import '../../features/transactions/presentation/screens/credits_screen.dart';
 
 final appRouter = GoRouter(
   routes: [
-    ShellRoute(
-      builder: (context, state, child) =>
-          ResponsiveNavigationScaffold(location: state.uri.path, child: child),
-      routes: [
-        GoRoute(
-          path: '/',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DashboardScreen()),
-        ),
-        GoRoute(
-          path: '/transactions',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: TransactionsScreen()),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) =>
+          ResponsiveNavigationScaffold(
+            location: state.uri.path,
+            navigationShell: navigationShell,
+          ),
+      branches: [
+        StatefulShellBranch(
           routes: [
             GoRoute(
-              path: 'new',
-              builder: (context, state) {
-                final type = state.uri.queryParameters['type'] == 'expense'
-                    ? TransactionType.expense
-                    : TransactionType.income;
-                return TransactionFormScreen(initialType: type);
-              },
-            ),
-            GoRoute(
-              path: ':id',
-              builder: (context, state) => TransactionDetailScreen(
-                transactionId: state.pathParameters['id']!,
-              ),
-              routes: [
-                GoRoute(
-                  path: 'edit',
-                  builder: (context, state) => TransactionFormScreen(
-                    transactionId: state.pathParameters['id']!,
-                  ),
-                ),
-              ],
+              path: '/',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: DashboardScreen()),
             ),
           ],
         ),
-        GoRoute(
-          path: '/credits',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: CreditsScreen()),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/transactions',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: TransactionsScreen()),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (context, state) {
+                    final type = state.uri.queryParameters['type'] == 'expense'
+                        ? TransactionType.expense
+                        : TransactionType.income;
+                    return TransactionFormScreen(initialType: type);
+                  },
+                ),
+                GoRoute(
+                  path: ':id',
+                  builder: (context, state) => TransactionDetailScreen(
+                    transactionId: state.pathParameters['id']!,
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'edit',
+                      builder: (context, state) => TransactionFormScreen(
+                        transactionId: state.pathParameters['id']!,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            GoRoute(
+              path: '/customers',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: CustomersScreen()),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/reports',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ReportsScreen()),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/credits',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: CreditsScreen()),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/products',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ProductsScreen()),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/reports',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: ReportsScreen()),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/customers',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: CustomersScreen()),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/products',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: ProductsScreen()),
+            ),
+          ],
         ),
-
-        GoRoute(
-          path: '/settings',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: SettingsScreen()),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: SettingsScreen()),
+            ),
+          ],
         ),
       ],
     ),

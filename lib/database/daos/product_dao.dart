@@ -147,8 +147,9 @@ class ProductDao {
     await database.ensureProductSaleItems();
     final product = await findProduct(productId);
     if (product == null) throw StateError('Produk tidak ditemukan.');
-    if (product.stockQuantity < quantity)
+    if (product.stockQuantity < quantity) {
       throw StateError('Stok ${product.name} tidak mencukupi.');
+    }
     await database.customStatement(
       'UPDATE inventory_products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?',
       [quantity, DateTime.now().toIso8601String(), productId],

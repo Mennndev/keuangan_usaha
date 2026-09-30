@@ -10,7 +10,6 @@ import '../../../core/widgets/finance_chart.dart';
 import '../../../core/widgets/finance_summary_card.dart';
 import '../../../core/widgets/loading_state.dart';
 import '../../../core/widgets/transaction_list_item.dart';
-import '../../settings/presentation/providers/settings_providers.dart';
 import '../../transactions/domain/finance_summary.dart';
 import '../../transactions/domain/finance_transaction.dart';
 import '../../transactions/presentation/providers/transaction_providers.dart';
@@ -34,19 +33,11 @@ class DashboardScreen extends ConsumerWidget {
     final points = ref.watch(
       cashFlowProvider(CashFlowRequest(range: range, groupByMonth: true)),
     );
-    final profile = ref.watch(businessProfileProvider).value;
-
     return CustomScrollView(
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          sliver: SliverToBoxAdapter(
-            child: AppPageHeader(
-              title: 'Beranda',
-              subtitle:
-                  'Semua transaksi sejak pencatatan dimulai · ${profile?.businessName ?? 'Usaha Anda'}',
-            ),
-          ),
+          sliver: SliverToBoxAdapter(child: AppPageHeader(title: 'Beranda')),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),

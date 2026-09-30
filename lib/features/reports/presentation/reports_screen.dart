@@ -95,12 +95,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       slivers: [
         const SliverPadding(
           padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-          sliver: SliverToBoxAdapter(
-            child: AppPageHeader(
-              title: 'Laporan',
-              subtitle: 'Pantau kondisi dan tren keuangan usaha',
-            ),
-          ),
+          sliver: SliverToBoxAdapter(child: AppPageHeader(title: 'Laporan')),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -400,10 +395,11 @@ class _CategoryBreakdown extends StatelessWidget {
               onRetry: onRetry,
             ),
             data: (items) {
-              if (items.isEmpty)
+              if (items.isEmpty) {
                 return const Text(
                   'Belum ada transaksi pada kategori ini di periode terpilih.',
                 );
+              }
               final maximum = items.first.amount;
               return Column(
                 children: [

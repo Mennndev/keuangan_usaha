@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../customers/domain/customer.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 
 import '../../../../core/formatters/currency_formatter.dart';

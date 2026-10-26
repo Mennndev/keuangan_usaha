@@ -48,13 +48,17 @@ void main() {
     required String id,
     required String brand,
     required String name,
-  }) {
-    return database.productDao.insertProduct(
+    int stock = 0,
+  }) async {
+    await database.productDao.insertProduct(
       id: id,
       brand: brand,
       name: name,
       sellingPrice: 10000,
     );
+    if (stock > 0) {
+      await database.productDao.updateProductStock(id, stock);
+    }
   }
 
   testWidgets('empty state produk tampil pada database kosong', (tester) async {
@@ -214,6 +218,166 @@ void main() {
     expect((await database.productDao.findProduct('p1'))?.stockQuantity, 0);
     await tester.tap(find.widgetWithText(TextButton, 'Batal'));
     await pumpFrames(tester);
+    await disposeTree(tester);
+  });
+
+  testWidgets('filter cepat stok menyaring produk sesuai status', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await insertProduct(
+      database,
+      id: 'p1',
+      brand: 'Vanestrix',
+      name: 'Produk Habis',
+    );
+    await insertProduct(
+      database,
+      id: 'p2',
+      brand: 'Dioses',
+      name: 'Produk Menipis',
+      stock: 3,
+    );
+    await insertProduct(
+      database,
+      id: 'p3',
+      brand: 'Vinbee',
+      name: 'Produk Aman',
+      stock: 40,
+    );
+
+    await tester.pumpWidget(appWithDatabase(database));
+    await pumpFrames(tester);
+
+    expect(find.text('Produk Habis'), findsOneWidget);
+    expect(find.text('Produk Menipis'), findsOneWidget);
+    expect(find.text('Produk Aman'), findsOneWidget);
+
+    final outChip = find.text('Stok Habis');
+    await tester.ensureVisible(outChip);
+    await tester.pump();
+    await tester.tap(outChip);
+    await pumpFrames(tester);
+
+    expect(find.text('Produk Habis'), findsOneWidget);
+    expect(find.text('Produk Menipis'), findsNothing);
+    expect(find.text('Produk Aman'), findsNothing);
+
+    await tester.tap(find.text('Stok Menipis'));
+    await pumpFrames(tester);
+
+    expect(find.text('Produk Menipis'), findsOneWidget);
+    expect(find.text('Produk Habis'), findsNothing);
+    expect(find.text('Produk Aman'), findsNothing);
+
+    await tester.tap(find.text('Semua'));
+    await pumpFrames(tester);
+
+    expect(find.text('Produk Habis'), findsOneWidget);
+    expect(find.text('Produk Menipis'), findsOneWidget);
+    expect(find.text('Produk Aman'), findsOneWidget);
+    await disposeTree(tester);
+  });
+
+  testWidgets('filter brand pada search bar menyaring daftar produk', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await insertProduct(
+      database,
+      id: 'p1',
+      brand: 'Vanestrix',
+      name: 'Produk Alpha',
+    );
+    await insertProduct(
+      database,
+      id: 'p2',
+      brand: 'Dioses',
+      name: 'Produk Beta',
+    );
+
+    await tester.pumpWidget(appWithDatabase(database));
+    await pumpFrames(tester);
+
+    final filterButton = find.byTooltip('Filter brand');
+    await tester.ensureVisible(filterButton);
+    await tester.tap(filterButton);
+    await pumpFrames(tester);
+
+    expect(find.text('Semua brand'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Dioses'),
+      ),
+    );
+    await pumpFrames(tester);
+
+    expect(find.text('Brand Dioses'), findsOneWidget);
+    expect(find.text('Produk Beta'), findsOneWidget);
+    expect(find.text('Produk Alpha'), findsNothing);
+
+    await tester.tap(filterButton);
+    await pumpFrames(tester);
+    await tester.tap(find.text('Semua brand'));
+    await pumpFrames(tester);
+
+    expect(find.text('Produk Alpha'), findsOneWidget);
+    expect(find.text('Produk Beta'), findsOneWidget);
+    await disposeTree(tester);
+  });
+
+  testWidgets('badge status stok membedakan habis, menipis, dan tersedia', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await insertProduct(
+      database,
+      id: 'p1',
+      brand: 'Vanestrix',
+      name: 'Produk Habis',
+    );
+    await insertProduct(
+      database,
+      id: 'p2',
+      brand: 'Dioses',
+      name: 'Produk Menipis',
+      stock: 3,
+    );
+    await insertProduct(
+      database,
+      id: 'p3',
+      brand: 'Vinbee',
+      name: 'Produk Aman',
+      stock: 40,
+    );
+
+    await tester.pumpWidget(appWithDatabase(database));
+    await pumpFrames(tester);
+
+    expect(find.text('Habis'), findsOneWidget);
+    expect(find.text('Menipis'), findsOneWidget);
+    expect(find.text('Tersedia'), findsOneWidget);
+    expect(find.text('Stok 3'), findsOneWidget);
+    expect(find.text('Stok 40'), findsOneWidget);
     await disposeTree(tester);
   });
 }

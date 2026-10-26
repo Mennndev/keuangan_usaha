@@ -112,6 +112,37 @@ class ProductDao {
     );
   }
 
+  Future<bool> updateProductStock(String productId, int newStock) async {
+    if (newStock < 0) {
+      throw ArgumentError.value(
+        newStock,
+        'newStock',
+        'Stok tidak boleh bernilai negatif.',
+      );
+    }
+    final updated = await database.customUpdate(
+      'UPDATE inventory_products SET stock_quantity = ?, updated_at = ? '
+      'WHERE id = ? AND archived = 0',
+      variables: [
+        Variable.withInt(newStock),
+        Variable.withString(DateTime.now().toIso8601String()),
+        Variable.withString(productId),
+      ],
+    );
+    return updated > 0;
+  }
+
+  Future<bool> deleteProduct(String id) async {
+    final updated = await database.customUpdate(
+      'UPDATE inventory_products SET archived = 1, updated_at = ? WHERE id = ? AND archived = 0',
+      variables: [
+        Variable.withString(DateTime.now().toIso8601String()),
+        Variable.withString(id),
+      ],
+    );
+    return updated > 0;
+  }
+
   Future<void> restock({
     required String productId,
     required int quantity,

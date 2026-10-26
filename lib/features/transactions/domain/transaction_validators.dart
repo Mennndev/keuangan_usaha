@@ -1,3 +1,5 @@
+import '../../../core/formatters/currency_formatter.dart';
+
 class TransactionValidators {
   const TransactionValidators._();
 
@@ -9,9 +11,8 @@ class TransactionValidators {
   }
 
   static String? amount(String? value) {
-    final digits = value?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
-    final amount = int.tryParse(digits);
-    if (amount == null || amount <= 0) {
+    final amount = CurrencyFormatter.parse(value ?? '');
+    if (amount <= 0) {
       return 'Nominal harus lebih besar dari Rp 0.';
     }
     return null;

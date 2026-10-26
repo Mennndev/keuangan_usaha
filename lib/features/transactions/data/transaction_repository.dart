@@ -59,7 +59,7 @@ class TransactionRepository {
     });
   }
 
-  Future<bool> update(String id, TransactionInput input) async {
+  Future<bool> updateTransaction(String id, TransactionInput input) async {
     return _database.transaction(() async {
       final existing = await _dao.findById(id);
       if (existing == null) return false;

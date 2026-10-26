@@ -20,15 +20,23 @@ import '../providers/transaction_providers.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   const TransactionFormScreen({
+    this.transaction,
     this.transactionId,
     this.initialType = TransactionType.income,
     super.key,
   });
 
+  /// Data transaksi yang akan diedit. Bila tersedia, form langsung memakai
+  /// nilai awal dari objek ini tanpa menunggu query ulang ke database.
+  final FinanceTransaction? transaction;
+
+  /// Alternatif saat form dibuka langsung dari URL/deep link.
   final String? transactionId;
   final TransactionType initialType;
 
-  bool get isEditing => transactionId != null;
+  bool get isEditing => transaction != null || transactionId != null;
+
+  String? get editingId => transaction?.id ?? transactionId;
 
   @override
   ConsumerState<TransactionFormScreen> createState() =>
@@ -410,12 +418,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
     try {
       final controller = ref.read(transactionControllerProvider.notifier);
+      final existingId = widget.editingId;
       late final String id;
-      if (widget.transactionId == null) {
+      if (existingId == null) {
         id = await controller.create(input);
       } else {
-        id = widget.transactionId!;
-        await controller.edit(id, input);
+        id = existingId;
+        await controller.updateTransaction(id, input);
       }
       if (!mounted) return;
       setState(() {
@@ -696,43 +705,48 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.transactionId != null) {
-      final transaction = ref.watch(
-        transactionByIdProvider(widget.transactionId!),
-      );
-      return transaction.when(
-        loading: () =>
-            const AppLoadingState(message: 'Menyiapkan form transaksi…'),
-        error: (error, stackTrace) => ErrorState(
-          message: 'Detail transaksi belum dapat dibuka.',
-          onRetry: () =>
-              ref.invalidate(transactionByIdProvider(widget.transactionId!)),
-        ),
-        data: (value) {
-          if (value == null) {
-            return const ErrorState(
-              message: 'Transaksi ini tidak ditemukan atau sudah dihapus.',
-            );
-          }
-          final sales = ref.watch(productSaleProvider(value.id));
-          return sales.when(
-            loading: () => const AppLoadingState(
-              message: 'Memuat rincian produk transaksi…',
-            ),
-            error: (error, stack) => ErrorState(
-              compact: true,
-              message: 'Informasi produk transaksi belum dapat dimuat.',
-              onRetry: () => ref.invalidate(productSaleProvider(value.id)),
-            ),
-            data: (saleValues) {
-              _populate(value, saleValues);
-              return _buildForm(context);
-            },
+    final provided = widget.transaction;
+    final id = widget.editingId;
+    if (id == null) return _buildForm(context);
+
+    // Saat objek transaksi sudah dibawa dari layar sebelumnya, form tidak
+    // perlu menunggu query ulang; cukup muat rincian produknya.
+    if (provided != null) return _buildFormWithSales(provided);
+
+    final transaction = ref.watch(transactionByIdProvider(id));
+    return transaction.when(
+      loading: () =>
+          const AppLoadingState(message: 'Menyiapkan form transaksi…'),
+      error: (error, stackTrace) => ErrorState(
+        message: 'Detail transaksi belum dapat dibuka.',
+        onRetry: () => ref.invalidate(transactionByIdProvider(id)),
+      ),
+      data: (value) {
+        if (value == null) {
+          return const ErrorState(
+            message: 'Transaksi ini tidak ditemukan atau sudah dihapus.',
           );
-        },
-      );
-    }
-    return _buildForm(context);
+        }
+        return _buildFormWithSales(value);
+      },
+    );
+  }
+
+  Widget _buildFormWithSales(FinanceTransaction transaction) {
+    final sales = ref.watch(productSaleProvider(transaction.id));
+    return sales.when(
+      loading: () =>
+          const AppLoadingState(message: 'Memuat rincian produk transaksi…'),
+      error: (error, stack) => ErrorState(
+        compact: true,
+        message: 'Informasi produk transaksi belum dapat dimuat.',
+        onRetry: () => ref.invalidate(productSaleProvider(transaction.id)),
+      ),
+      data: (saleValues) {
+        _populate(transaction, saleValues);
+        return _buildForm(context);
+      },
+    );
   }
 
   Widget _buildForm(BuildContext context) {

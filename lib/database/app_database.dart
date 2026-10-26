@@ -120,14 +120,18 @@ class AppDatabase extends _$AppDatabase {
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'product_sales'",
     ).getSingleOrNull();
     if (legacyTable != null) {
+      // Satu transaksi bisa memuat beberapa baris produk. ID harus unik per
+      // baris, bukan memakai transaction_id, agar baris kedua dan seterusnya
+      // tidak terbuang oleh INSERT OR IGNORE sebelum tabel lama dihapus.
       await customStatement('''INSERT OR IGNORE INTO product_sale_items
         (id, transaction_id, product_id, product_name_snapshot, brand_snapshot, quantity, unit_price)
-        SELECT old.transaction_id, old.transaction_id, old.product_id, old.product_name_snapshot,
-          old.brand_snapshot, old.quantity, old.unit_price
+        SELECT lower(hex(randomblob(16))), old.transaction_id, old.product_id,
+          old.product_name_snapshot, old.brand_snapshot, old.quantity, old.unit_price
         FROM product_sales old
         WHERE NOT EXISTS (
           SELECT 1 FROM product_sale_items current
           WHERE current.transaction_id = old.transaction_id
+            AND current.product_id = old.product_id
         )''');
       await customStatement('DROP TABLE product_sales');
     }

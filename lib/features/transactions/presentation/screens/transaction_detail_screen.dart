@@ -26,7 +26,7 @@ class TransactionDetailScreen extends ConsumerWidget {
   ) async {
     final deleted = await showConfirmDeleteDialog(
       context,
-      transactionName: transaction.name,
+      itemName: transaction.name,
       onDelete: () => ref
           .read(transactionControllerProvider.notifier)
           .delete(transaction.id),
@@ -290,6 +290,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                                 FilledButton.icon(
                                   onPressed: () => context.go(
                                     '/transactions/${value.id}/edit',
+                                    extra: value,
                                   ),
                                   icon: const Icon(Icons.edit_outlined),
                                   label: const Text('Edit transaksi'),

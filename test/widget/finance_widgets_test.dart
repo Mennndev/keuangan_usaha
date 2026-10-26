@@ -176,7 +176,7 @@ void main() {
               child: FilledButton(
                 onPressed: () => showConfirmDeleteDialog(
                   context,
-                  transactionName: 'Belanja stok',
+                  itemName: 'Belanja stok',
                   onDelete: () async {
                     deleteCalls++;
                   },

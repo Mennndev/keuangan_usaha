@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../features/transactions/domain/finance_transaction.dart';
+import '../formatters/currency_formatter.dart';
 import 'currency_text.dart';
 
 enum SummaryTone { income, expense, info }
@@ -23,6 +24,7 @@ class FinanceSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final theme = Theme.of(context);
     final (surface, foreground, type) = switch (tone) {
       SummaryTone.income => (
         colors.incomeSurface,
@@ -43,58 +45,71 @@ class FinanceSummaryCard extends StatelessWidget {
           SummaryTone.expense => Icons.trending_down_rounded,
           SummaryTone.info => Icons.account_balance_wallet_rounded,
         };
+
     return Semantics(
       container: true,
-      label: label,
+      excludeSemantics: true,
+      label: '$label, ${CurrencyFormatter.format(amount)}',
       child: Container(
-        constraints: const BoxConstraints(minHeight: 120),
+        constraints: const BoxConstraints(minHeight: 132),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Color.lerp(colors.card, surface, .72),
+          color: colors.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: foreground.withValues(alpha: .13)),
+          border: Border.all(color: colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: surface,
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(cardIcon, size: 18, color: foreground),
+                  child: Icon(cardIcon, size: 19, color: foreground),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.textSecondary,
                       fontWeight: FontWeight.w600,
+                      height: 1.3,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             FittedBox(
               alignment: Alignment.centerLeft,
               fit: BoxFit.scaleDown,
               child: CurrencyText(
                 amount: amount,
                 type: type,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                style: theme.textTheme.titleLarge?.copyWith(
                   color: colors.textPrimary,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: 34,
+              height: 3,
+              decoration: BoxDecoration(
+                color: foreground.withValues(alpha: .5),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ],

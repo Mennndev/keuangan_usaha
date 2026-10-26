@@ -15,7 +15,7 @@ class CurrencyFormatter {
   static String format(int amount) => _formatter.format(amount);
 
   static String formatSigned(int amount, {required bool income}) {
-    return '${income ? '+' : '-'} ${format(amount)}';
+    return '${income ? '+' : '-'} ${format(amount.abs())}';
   }
 
   static String digits(int amount) => _digits.format(amount);

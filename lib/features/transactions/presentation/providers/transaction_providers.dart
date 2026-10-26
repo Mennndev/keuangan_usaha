@@ -110,22 +110,42 @@ class TransactionController extends AsyncNotifier<void> {
     }
   }
 
-  Future<void> edit(String id, TransactionInput input) async {
+  Future<void> updateTransaction(String id, TransactionInput input) async {
     _guardDoubleSubmit();
     state = const AsyncLoading();
     try {
-      final updated = await _repository.update(id, input);
+      final updated = await _repository.updateTransaction(id, input);
       if (!updated) {
         throw StateError('Transaksi tidak ditemukan.');
       }
       if (input.isCredit && input.type == TransactionType.income) {
         ref.invalidate(customersProvider);
       }
+      _refreshTransactionData(id);
       state = const AsyncData(null);
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
       rethrow;
     }
+  }
+
+  /// Alias lama untuk [updateTransaction] agar pemanggil yang sudah ada tetap
+  /// berfungsi.
+  Future<void> edit(String id, TransactionInput input) =>
+      updateTransaction(id, input);
+
+  /// Memaksa daftar transaksi, ringkasan kas, piutang, dan laporan terkait
+  /// membaca ulang data terbaru setelah transaksi diperbarui.
+  void _refreshTransactionData(String id) {
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(latestTransactionsProvider);
+    ref.invalidate(transactionByIdProvider(id));
+    ref.invalidate(productSaleProvider(id));
+    ref.invalidate(financeTotalsProvider);
+    ref.invalidate(allTimeFinanceTotalsProvider);
+    ref.invalidate(cashFlowProvider);
+    ref.invalidate(categoryTotalsProvider);
+    ref.invalidate(creditsProvider);
   }
 
   Future<void> delete(String id) async {

@@ -56,9 +56,15 @@ final appRouter = GoRouter(
                   routes: [
                     GoRoute(
                       path: 'edit',
-                      builder: (context, state) => TransactionFormScreen(
-                        transactionId: state.pathParameters['id']!,
-                      ),
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        return TransactionFormScreen(
+                          transactionId: state.pathParameters['id']!,
+                          transaction: extra is FinanceTransaction
+                              ? extra
+                              : null,
+                        );
+                      },
                     ),
                   ],
                 ),

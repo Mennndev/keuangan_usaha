@@ -121,7 +121,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   Future<void> _delete(FinanceTransaction transaction) async {
     final deleted = await showConfirmDeleteDialog(
       context,
-      transactionName: transaction.name,
+      itemName: transaction.name,
       onDelete: () => ref
           .read(transactionControllerProvider.notifier)
           .delete(transaction.id),
@@ -351,8 +351,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   return TransactionListItem(
                     transaction: transaction,
                     onTap: () => context.go('/transactions/${transaction.id}'),
-                    onEdit: () =>
-                        context.go('/transactions/${transaction.id}/edit'),
+                    onEdit: () => context.go(
+                      '/transactions/${transaction.id}/edit',
+                      extra: transaction,
+                    ),
                     onDelete: () => _delete(transaction),
                   );
                 },

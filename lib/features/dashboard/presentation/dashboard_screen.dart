@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../../core/responsive/breakpoints.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
@@ -107,11 +108,13 @@ class _DashboardContent extends StatelessWidget {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 900
-                    ? 3
-                    : constraints.maxWidth >= 520
-                    ? 2
-                    : 1;
+                final columns = switch (AppBreakpoints.ofWidth(
+                  constraints.maxWidth,
+                )) {
+                  WindowSizeClass.compact => 1,
+                  WindowSizeClass.medium => 2,
+                  WindowSizeClass.expanded => 3,
+                };
                 final width =
                     (constraints.maxWidth - ((columns - 1) * 12)) / columns;
                 return Wrap(
@@ -150,52 +153,56 @@ class _DashboardContent extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Arus kas 12 bulan terakhir',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  'Per bulan',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
             Card(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-                child: points.when(
-                  loading: () => const SizedBox(
-                    height: 220,
-                    child: AppLoadingState(
-                      compact: true,
-                      message: 'Menyiapkan grafik…',
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Arus kas 12 bulan terakhir',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const _MetaPill(label: 'Per bulan'),
+                      ],
                     ),
-                  ),
-                  error: (error, stackTrace) => ErrorState(
-                    message: 'Grafik arus kas belum dapat dimuat.',
-                    compact: true,
-                    onRetry: onRetryPoints,
-                  ),
-                  data: (data) => FinanceChart(points: data),
+                    const SizedBox(height: 14),
+                    points.when(
+                      loading: () => const SizedBox(
+                        height: 220,
+                        child: AppLoadingState(
+                          compact: true,
+                          message: 'Menyiapkan grafik…',
+                        ),
+                      ),
+                      error: (error, stackTrace) => ErrorState(
+                        message: 'Grafik arus kas belum dapat dimuat.',
+                        compact: true,
+                        onRetry: onRetryPoints,
+                      ),
+                      data: (data) => FinanceChart(points: data),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 18),
             LayoutBuilder(
               builder: (context, constraints) {
-                final compact = constraints.maxWidth < 520;
+                final compact =
+                    AppBreakpoints.ofWidth(constraints.maxWidth) ==
+                    WindowSizeClass.compact;
+                final colors = context.appColors;
                 final income = FilledButton.icon(
                   onPressed: () => context.go('/transactions/new?type=income'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: context.appColors.income,
+                    backgroundColor: colors.income,
+                    foregroundColor: _foregroundFor(colors.income),
                   ),
                   icon: const Icon(Icons.add),
                   label: const Text('Tambah pemasukan'),
@@ -203,7 +210,8 @@ class _DashboardContent extends StatelessWidget {
                 final expense = FilledButton.icon(
                   onPressed: () => context.go('/transactions/new?type=expense'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
+                    backgroundColor: colors.expense,
+                    foregroundColor: _foregroundFor(colors.expense),
                   ),
                   icon: const Icon(Icons.remove),
                   label: const Text('Tambah pengeluaran'),
@@ -223,7 +231,7 @@ class _DashboardContent extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             Row(
               children: [
                 Expanded(
@@ -240,27 +248,107 @@ class _DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             if (transactions.isEmpty)
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('Belum ada transaksi.'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 22,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: context.appColors.infoSurface,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.receipt_long_outlined,
+                          size: 20,
+                          color: context.appColors.info,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Belum ada transaksi.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: context.appColors.textSecondary,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
-              for (var index = 0; index < transactions.length; index++) ...[
-                TransactionListItem(
-                  transaction: transactions[index],
-                  showCard: false,
-                  onTap: () =>
-                      context.go('/transactions/${transactions[index].id}'),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < transactions.length;
+                      index++
+                    ) ...[
+                      TransactionListItem(
+                        transaction: transactions[index],
+                        showCard: false,
+                        onTap: () => context.go(
+                          '/transactions/${transactions[index].id}',
+                        ),
+                      ),
+                      if (index < transactions.length - 1)
+                        Divider(
+                          height: 1,
+                          indent: 70,
+                          endIndent: 16,
+                          color: context.appColors.border,
+                        ),
+                    ],
+                  ],
                 ),
-                if (index < transactions.length - 1) const Divider(height: 1),
-              ],
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.infoSurface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.info,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+Color _foregroundFor(Color background) {
+  return ThemeData.estimateBrightnessForColor(background) == Brightness.dark
+      ? Colors.white
+      : Colors.black;
 }
 
 class _FirstTransactionState extends StatelessWidget {

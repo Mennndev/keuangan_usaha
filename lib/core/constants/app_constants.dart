@@ -2,6 +2,9 @@ class AppConstants {
   const AppConstants._();
 
   static const appName = 'Keuangan Usaha';
+
+  /// Samakan nilainya dengan `version` di pubspec.yaml.
+  static const appVersion = '1.0.0';
   static const currencyCode = 'IDR';
   static const databaseSettingsId = 'business';
   static const pageSize = 30;

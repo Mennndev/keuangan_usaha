@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 
 class ConfirmDeleteDialog extends StatefulWidget {
   const ConfirmDeleteDialog({
-    required this.transactionName,
+    required this.itemName,
     required this.onDelete,
+    this.title = 'Hapus transaksi?',
+    this.description,
+    this.errorMessage = 'Transaksi belum berhasil dihapus. Coba lagi.',
+    this.onError,
     super.key,
   });
 
-  final String transactionName;
+  final String itemName;
+  final String title;
+  final String? description;
+  final String errorMessage;
   final Future<void> Function() onDelete;
+  final ValueChanged<Object>? onError;
 
   @override
   State<ConfirmDeleteDialog> createState() => _ConfirmDeleteDialogState();
@@ -27,11 +35,12 @@ class _ConfirmDeleteDialogState extends State<ConfirmDeleteDialog> {
     try {
       await widget.onDelete();
       if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (error) {
+      widget.onError?.call(error);
       if (mounted) {
         setState(() {
           _deleting = false;
-          _error = 'Transaksi belum berhasil dihapus. Coba lagi.';
+          _error = widget.errorMessage;
         });
       }
     }
@@ -46,13 +55,14 @@ class _ConfirmDeleteDialogState extends State<ConfirmDeleteDialog> {
           Icons.delete_outline,
           color: Theme.of(context).colorScheme.error,
         ),
-        title: const Text('Hapus transaksi?'),
+        title: Text(widget.title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '“${widget.transactionName}” akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+              widget.description ??
+                  '“${widget.itemName}” akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -92,15 +102,23 @@ class _ConfirmDeleteDialogState extends State<ConfirmDeleteDialog> {
 
 Future<bool> showConfirmDeleteDialog(
   BuildContext context, {
-  required String transactionName,
+  required String itemName,
   required Future<void> Function() onDelete,
+  String title = 'Hapus transaksi?',
+  String? description,
+  String errorMessage = 'Transaksi belum berhasil dihapus. Coba lagi.',
+  ValueChanged<Object>? onError,
 }) async {
   return await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (context) => ConfirmDeleteDialog(
-          transactionName: transactionName,
+          itemName: itemName,
           onDelete: onDelete,
+          title: title,
+          description: description,
+          errorMessage: errorMessage,
+          onError: onError,
         ),
       ) ??
       false;
